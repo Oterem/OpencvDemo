@@ -1,14 +1,19 @@
 package omri.opencvdemo;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -52,12 +57,15 @@ import java.util.Vector;
 public class MainActivity extends AppCompatActivity {
 
 
-    private ImageView imageview;
+    private ImageView mImageView;
     private Bitmap icon;
     private Button browse_btn, camera_btn, analyze_btn;
     private static final String TAG = "MainActivity";
     private String mCurrentPhotoPath;
-    static final int REQUEST_TAKE_PHOTO = 1;
+    private String mCurrentGalleryPath;
+    static final int ACTION_IMAGE_CAPTURE = 1;
+    static final int ACTION_GET_CONTENT = 2;
+    private static final int REQUEST_CAMERA = 100;
 
     // Used to load the 'native-lib' library on application startup.
     static {
@@ -79,23 +87,27 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
             requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-            requestPermissions(new String[]{Manifest.permission.CAMERA}, 1);
+
+
+        /*    if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
+            {
+                Log.i(TAG, "onCreate: need permission");
+                *//*requestPermissions(new String[]{Manifest.permission.CAMERA},
+                        MY_CAMERA_REQUEST_CODE);*//*
+
+                 ActivityCompat.requestPermissions(MainActivity.this, new String[] {android.Manifest.permission.CAMERA}, 100);
+
+            }
+            if (checkSelfPermission(android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
+            {
+                Log.i(TAG, "onCreate: got permission");
+            }*/
+
+
         }
 
 
-
-
     }
-
-
-
-
-
-
-
-
-
-
 
 
     /**
@@ -103,6 +115,7 @@ public class MainActivity extends AppCompatActivity {
      * which is packaged with this application.
      */
     public native String stringFromJNI();
+
 
     /*----------------------------------------------------------------------------*/
     private File createImageFile() throws IOException {
@@ -125,6 +138,7 @@ public class MainActivity extends AppCompatActivity {
     public void launchCamera(View v) {
 
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        // startActivity(takePictureIntent);
 
 
         // Ensure that there's a camera activity to handle the intent
@@ -137,16 +151,18 @@ public class MainActivity extends AppCompatActivity {
                 // Error occurred while creating the File
 
             }
-            Log.i(TAG, "launchCamera: all good");
+
             // Continue only if the File was successfully created
             if (photoFile != null) {
 
-                Uri photoURI = FileProvider.getUriForFile(this,"com.example.android.fileprovider", photoFile);
-                Log.i(TAG, "launchCamera: all good1");
+                Uri photoURI = FileProvider.getUriForFile(this, "com.omri.opencvdemo.fileprovider", photoFile);
+                Log.i(TAG, "launchCamera: all good");
+                getBaseContext().grantUriPermission("com.omri.opencvdemo", photoURI, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+                Log.i(TAG, "launchCamera: all goodddd");
 
-
-                startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO);
+                startActivityForResult(takePictureIntent, ACTION_IMAGE_CAPTURE);
+                //startActivity(takePictureIntent);
             }
         }
 
@@ -155,14 +171,72 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+
         super.onActivityResult(requestCode, resultCode, data);
 
-        if(resultCode==RESULT_OK)
-        {
-            if(requestCode==REQUEST_TAKE_PHOTO)
-            {
+        if (resultCode == RESULT_OK) {
+
+            switch (requestCode) {
+                case ACTION_IMAGE_CAPTURE:
+                    setPic(mCurrentPhotoPath);
+                    break;
+                case ACTION_GET_CONTENT:
+                    Uri myUri = data.getData();
+
+                    try {
+                        Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), myUri);
+                        ImageView image = (ImageView) findViewById(R.id.pic1);
+                        image.setImageBitmap(bitmap);
+                    } catch (Exception e) {
+                    }
+
+                    break;
+
 
             }
+
+
         }
     }
+
+    /*----------------------------------------------------------------------------*/
+    private void setPic(String path) {
+        File file = new File(path);
+        Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+        mImageView = (ImageView) findViewById(R.id.pic1);
+        mImageView.setImageBitmap(bitmap);
+    }
+
+    public String getRealPathFromURI(Uri contentUri) {
+
+        // can post image
+        String[] proj = {MediaStore.Images.Media.DATA};
+        Cursor cursor = getContentResolver().query(contentUri,
+                proj, // Which columns to return
+                null,       // WHERE clause; which rows to return (all rows)
+                null,       // WHERE clause selection arguments (none)
+                null); // Order-by clause (ascending by name)
+        int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+        cursor.moveToFirst();
+
+        return cursor.getString(column_index);
+    }
+
+    /*----------------------------------------------------------------------------*/
+    private void galleryAddPic() {
+        Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+        File f = new File(mCurrentPhotoPath);
+        Uri contentUri = Uri.fromFile(f);
+        mediaScanIntent.setData(contentUri);
+        this.sendBroadcast(mediaScanIntent);
+    }
+
+    /*----------------------------------------------------------------------------*/
+    public void onBrowseClick(View v) {
+        Intent intent = new Intent();
+        intent.setType("image/*");
+        intent.setAction(Intent.ACTION_GET_CONTENT);
+        startActivityForResult(Intent.createChooser(intent, "Select Picture"), ACTION_GET_CONTENT);
+    }
+
 }
