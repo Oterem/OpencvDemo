@@ -239,4 +239,36 @@ public class MainActivity extends AppCompatActivity {
         startActivityForResult(Intent.createChooser(intent, "Select Picture"), ACTION_GET_CONTENT);
     }
 
+    public void onAnalyzeClick(View v)
+    {
+        String path = mCurrentPhotoPath;
+        Mat src = new Mat();
+        Mat dest = new Mat();
+        src = Imgcodecs.imread(path,Imgcodecs.CV_LOAD_IMAGE_GRAYSCALE);
+
+        //TODO: find a smart threshold and apply it
+
+
+           /*Convert the image to black and white based on a threshold*/
+        Imgproc.threshold(src, dest, 127, 255,  Imgproc.THRESH_BINARY_INV);
+        Imgproc.dilate(dest,dest,Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(2,2)));
+        List<MatOfPoint> contours= new ArrayList<MatOfPoint>();
+        Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
+        Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_EXTERNAL,Imgproc.CHAIN_APPROX_SIMPLE);
+            /*Convert picture back to colors in order to see the red border surrounding the melanoma*/
+        Imgproc.cvtColor(dest,dest,Imgproc.COLOR_GRAY2RGB);
+            /*Painting red border around the melanoma based on the contour vector*/
+        Imgproc.drawContours(dest,contours,-1,new Scalar(255,0,0),10);
+            /*Filling the inside of the contours in white color in order to get rid of "noises" */
+        Imgproc.drawContours(dest,contours,-1,new Scalar(255,255,255),-1);
+
+
+
+        Bitmap bm = Bitmap.createBitmap(dest.cols(), dest.rows(),Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(dest, bm);
+        mImageView = (ImageView) findViewById(R.id.pic1);
+        mImageView.setImageBitmap(bm);
+
+    }
+
 }
