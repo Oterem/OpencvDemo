@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">OpencvDemo</string>
+    <string name="analyze">ANALYZE</string>
+    <string name="browse">BROWSE</string>
+    <string name="take_photo">TAKE PHOTO</string>
+</resources>
