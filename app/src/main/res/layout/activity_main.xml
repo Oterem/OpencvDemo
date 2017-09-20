@@ -3,7 +3,7 @@
 <android.widget.RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-
+    android:id="@+id/my_layout"
     android:layoutDirection="ltr"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -27,6 +27,17 @@
         android:layout_marginBottom="21dp"
         android:contentDescription=""
         tools:ignore="ContentDescription" />
+
+    <ProgressBar
+        android:id="@+id/progressbar_loading"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_centerInParent="true"
+        android:layout_centerVertical="true"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone" />
 
     <Button
         android:id="@+id/camera_btn"
@@ -61,9 +72,10 @@
         android:layout_alignBottom="@+id/camera_btn"
         android:layout_alignEnd="@+id/pic1"
         android:onClick="onAnalyzeClick"
-        android:saveEnabled="false"
         android:text="@string/analyze"
         app:layout_constraintTop_toTopOf="parent"
         tools:layout_editor_absoluteX="262dp" />
+
+
 
 </android.widget.RelativeLayout>

@@ -1,17 +1,25 @@
 package omri.opencvdemo;
 
 import android.Manifest;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.Context;
+import android.content.CursorLoader;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.FileProvider;
@@ -20,7 +28,9 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.opencv.android.Utils;
 import org.opencv.calib3d.Calib3d;
@@ -47,25 +57,35 @@ import org.opencv.photo.Photo;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Vector;
+
+import javax.xml.transform.Result;
+
+import static java.security.AccessController.getContext;
 
 
 public class MainActivity extends AppCompatActivity {
 
 
     private ImageView mImageView;
-    private Bitmap icon;
+    private Bitmap currentBitmap;
     private Button browse_btn, camera_btn, analyze_btn;
     private static final String TAG = "MainActivity";
-    private String mCurrentPhotoPath;
-    private String mCurrentGalleryPath;
+    private String currentPhotoPath, currentGalleryPath;
+    private String current_open_image_path;
     static final int ACTION_IMAGE_CAPTURE = 1;
     static final int ACTION_GET_CONTENT = 2;
     private static final int REQUEST_CAMERA = 100;
+    private Uri photoURI;
+    private ProgressBar pb;
+
 
     // Used to load the 'native-lib' library on application startup.
     static {
@@ -78,35 +98,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    /*----------------------------------------------------------------------------*/
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        pb = (ProgressBar) findViewById(R.id.progressbar_loading);
+        pb.setVisibility(View.GONE);
+        mImageView = (ImageView) findViewById(R.id.pic1);
+        analyze_btn = (Button)findViewById(R.id.analyze_btn);
+        analyze_btn.setEnabled(false);
 
         //handling permissions in case of SDK >=23
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
             requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
-
-
-        /*    if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
-            {
-                Log.i(TAG, "onCreate: need permission");
-                *//*requestPermissions(new String[]{Manifest.permission.CAMERA},
-                        MY_CAMERA_REQUEST_CODE);*//*
-
-                 ActivityCompat.requestPermissions(MainActivity.this, new String[] {android.Manifest.permission.CAMERA}, 100);
-
-            }
-            if (checkSelfPermission(android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
-            {
-                Log.i(TAG, "onCreate: got permission");
-            }*/
-
-
         }
-
-
     }
 
 
@@ -120,7 +127,7 @@ public class MainActivity extends AppCompatActivity {
     /*----------------------------------------------------------------------------*/
     private File createImageFile() throws IOException {
         // Create an image file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
         String imageFileName = "JPEG_" + timeStamp + "_";
         File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         File image = File.createTempFile(
@@ -130,17 +137,13 @@ public class MainActivity extends AppCompatActivity {
         );
 
         // Save a file: path for use with ACTION_VIEW intents
-        mCurrentPhotoPath = image.getAbsolutePath();
+        currentPhotoPath = image.getAbsolutePath();
         return image;
     }
 
     /*----------------------------------------------------------------------------*/
     public void launchCamera(View v) {
-
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        // startActivity(takePictureIntent);
-
-
         // Ensure that there's a camera activity to handle the intent
         if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
             // Create the File where the photo should go
@@ -148,24 +151,18 @@ public class MainActivity extends AppCompatActivity {
             try {
                 photoFile = createImageFile();
             } catch (IOException ex) {
-                // Error occurred while creating the File
-
+                Toast.makeText(getApplicationContext(), "Error occurred while creating the File", Toast.LENGTH_LONG).show();
             }
 
             // Continue only if the File was successfully created
             if (photoFile != null) {
-
-                Uri photoURI = FileProvider.getUriForFile(this, "com.omri.opencvdemo.fileprovider", photoFile);
-                Log.i(TAG, "launchCamera: all good");
+                photoURI = FileProvider.getUriForFile(this,
+                        "com.omri.opencvdemo.fileprovider", photoFile);
                 getBaseContext().grantUriPermission("com.omri.opencvdemo", photoURI, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
-                Log.i(TAG, "launchCamera: all goodddd");
-
                 startActivityForResult(takePictureIntent, ACTION_IMAGE_CAPTURE);
-                //startActivity(takePictureIntent);
             }
         }
-
     }
      /*----------------------------------------------------------------------------*/
 
@@ -177,59 +174,49 @@ public class MainActivity extends AppCompatActivity {
         if (resultCode == RESULT_OK) {
 
             switch (requestCode) {
-                case ACTION_IMAGE_CAPTURE:
-                    setPic(mCurrentPhotoPath);
-                    break;
-                case ACTION_GET_CONTENT:
-                    Uri myUri = data.getData();
+                case ACTION_IMAGE_CAPTURE: //in case user is taking a picture
 
                     try {
-                        Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), myUri);
-                        ImageView image = (ImageView) findViewById(R.id.pic1);
-                        image.setImageBitmap(bitmap);
+                        Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), photoURI);
+                        currentBitmap = bm;
+                        setPic(bm);
                     } catch (Exception e) {
+                        Toast.makeText(getApplicationContext(), "Error loading picture", Toast.LENGTH_LONG).show();
                     }
-
                     break;
 
-
+                case ACTION_GET_CONTENT: //in case user is loading picture from gallery
+                    try {
+                        Uri receivedUri = data.getData();
+                        photoURI = receivedUri;
+                        Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), receivedUri);
+                        currentBitmap = bm;
+                        setPic(bm);
+                    } catch (Exception e) {
+                        Toast.makeText(getApplicationContext(), "Error loading picture", Toast.LENGTH_LONG).show();
+                    }
+                    break;
             }
-
-
         }
     }
 
     /*----------------------------------------------------------------------------*/
-    private void setPic(String path) {
-        File file = new File(path);
-        Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+    private void setPic(Bitmap bm) {
         mImageView = (ImageView) findViewById(R.id.pic1);
-        mImageView.setImageBitmap(bitmap);
+        mImageView.setImageBitmap(bm);
+        analyze_btn.setEnabled(true);
     }
 
-    public String getRealPathFromURI(Uri contentUri) {
-
-        // can post image
-        String[] proj = {MediaStore.Images.Media.DATA};
-        Cursor cursor = getContentResolver().query(contentUri,
-                proj, // Which columns to return
-                null,       // WHERE clause; which rows to return (all rows)
-                null,       // WHERE clause selection arguments (none)
-                null); // Order-by clause (ascending by name)
-        int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
-        cursor.moveToFirst();
-
-        return cursor.getString(column_index);
-    }
 
     /*----------------------------------------------------------------------------*/
     private void galleryAddPic() {
         Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-        File f = new File(mCurrentPhotoPath);
+        File f = new File(currentPhotoPath);
         Uri contentUri = Uri.fromFile(f);
         mediaScanIntent.setData(contentUri);
         this.sendBroadcast(mediaScanIntent);
     }
+
 
     /*----------------------------------------------------------------------------*/
     public void onBrowseClick(View v) {
@@ -238,37 +225,86 @@ public class MainActivity extends AppCompatActivity {
         intent.setAction(Intent.ACTION_GET_CONTENT);
         startActivityForResult(Intent.createChooser(intent, "Select Picture"), ACTION_GET_CONTENT);
     }
+    /*----------------------------------------------------------------------------*/
 
-    public void onAnalyzeClick(View v)
-    {
-        String path = mCurrentPhotoPath;
-        Mat src = new Mat();
-        Mat dest = new Mat();
-        src = Imgcodecs.imread(path,Imgcodecs.CV_LOAD_IMAGE_GRAYSCALE);
+    public void onAnalyzeClick(View v) {
 
-        //TODO: find a smart threshold and apply it
+        MyAsyncTask work = new MyAsyncTask();
+        work.execute(currentBitmap);
+    }
+    /*----------------------------------------------------------------------------*/
 
+    /*This class perform image processing*/
+    private class MyAsyncTask extends AsyncTask<Bitmap, Void, Bitmap> {
+
+        private Bitmap bm;
+
+        /*-----------------------------------------------------------*/
+        @Override
+        protected void onPreExecute() {
+            int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
+            View v = findViewById(R.id.my_layout);
+            v.setAlpha(.5f);
+            pb.setVisibility(View.VISIBLE);
+            pb.animate().setDuration(shortAnimTime).alpha(
+                    1).setListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    pb.setVisibility(View.VISIBLE);
+
+                }
+            });
+        }
+        /*----------------------------------------------------------*/
+
+        @Override
+        protected void onPostExecute(Bitmap bitmap) {
+
+            pb.setVisibility(View.INVISIBLE);
+            pb.animate().setDuration(0).alpha(
+                    0).setListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    pb.setVisibility(View.INVISIBLE);
+
+                }
+            });
+            View v = findViewById(R.id.my_layout);
+            v.setAlpha(1f);
+            currentBitmap = bitmap;
+            mImageView.setImageBitmap(currentBitmap);
+        }
+
+        /*----------------------------------------------------------*/
+
+        @Override
+        protected Bitmap doInBackground(Bitmap... bitmaps) {
+
+            bm = bitmaps[0];
+            Mat src = new Mat();
+            Mat dest = new Mat();
+            Utils.bitmapToMat(bm, src);
+            Imgproc.cvtColor(src, dest, Imgproc.COLOR_BGR2GRAY);
+
+
+            //TODO: find a "smart" threshold and apply it
 
            /*Convert the image to black and white based on a threshold*/
-        Imgproc.threshold(src, dest, 127, 255,  Imgproc.THRESH_BINARY_INV);
-        Imgproc.dilate(dest,dest,Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(2,2)));
-        List<MatOfPoint> contours= new ArrayList<MatOfPoint>();
-        Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
-        Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_EXTERNAL,Imgproc.CHAIN_APPROX_SIMPLE);
+            Imgproc.threshold(dest, dest, 127, 255, Imgproc.THRESH_BINARY_INV);
+            Imgproc.dilate(dest, dest, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(2, 2)));
+            List<MatOfPoint> contours = new ArrayList<>();
+            Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
+            Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
             /*Convert picture back to colors in order to see the red border surrounding the melanoma*/
-        Imgproc.cvtColor(dest,dest,Imgproc.COLOR_GRAY2RGB);
+            Imgproc.cvtColor(dest, dest, Imgproc.COLOR_GRAY2RGB);
             /*Painting red border around the melanoma based on the contour vector*/
-        Imgproc.drawContours(dest,contours,-1,new Scalar(255,0,0),10);
+            Imgproc.drawContours(dest, contours, -1, new Scalar(255, 0, 0), 15);
             /*Filling the inside of the contours in white color in order to get rid of "noises" */
-        Imgproc.drawContours(dest,contours,-1,new Scalar(255,255,255),-1);
-
-
-
-        Bitmap bm = Bitmap.createBitmap(dest.cols(), dest.rows(),Bitmap.Config.ARGB_8888);
-        Utils.matToBitmap(dest, bm);
-        mImageView = (ImageView) findViewById(R.id.pic1);
-        mImageView.setImageBitmap(bm);
-
+            Imgproc.drawContours(dest, contours, -1, new Scalar(255, 255, 255), -1);
+            Bitmap bm = Bitmap.createBitmap(dest.cols(), dest.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(dest, bm);
+            return bm;
+        }
+      /*----------------------------------------------------------*/
     }
-
 }
