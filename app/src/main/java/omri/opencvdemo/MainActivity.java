@@ -12,6 +12,7 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Camera;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -23,6 +24,9 @@ import android.provider.OpenableColumns;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.FileProvider;
+import android.support.v4.view.ViewPager;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -38,6 +42,8 @@ import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfDMatch;
+import org.opencv.core.MatOfFloat;
+import org.opencv.core.MatOfInt;
 import org.opencv.core.MatOfKeyPoint;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
@@ -61,6 +67,7 @@ import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -75,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     private ImageView mImageView;
-    private Bitmap currentBitmap;
+    private Bitmap currentBitmap, calculatedBitmap, calculatedHistogram;
     private Button browse_btn, camera_btn, analyze_btn;
     private static final String TAG = "MainActivity";
     private String currentPhotoPath, currentGalleryPath;
@@ -143,7 +150,9 @@ public class MainActivity extends AppCompatActivity {
 
     /*----------------------------------------------------------------------------*/
     public void launchCamera(View v) {
+
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+
         // Ensure that there's a camera activity to handle the intent
         if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
             // Create the File where the photo should go
@@ -163,7 +172,11 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(takePictureIntent, ACTION_IMAGE_CAPTURE);
             }
         }
+
+
     }
+
+
      /*----------------------------------------------------------------------------*/
 
     @Override
@@ -230,12 +243,16 @@ public class MainActivity extends AppCompatActivity {
     public void onAnalyzeClick(View v) {
 
         MyAsyncTask work = new MyAsyncTask();
-        work.execute(currentBitmap);
+        calculatedBitmap = currentBitmap;
+        work.execute(calculatedBitmap);
+        Button b = (Button)findViewById(R.id.analyze_btn);
+        b.setEnabled(false);
     }
     /*----------------------------------------------------------------------------*/
 
     /*This class perform image processing*/
     private class MyAsyncTask extends AsyncTask<Bitmap, Void, Bitmap> {
+
 
         private Bitmap bm;
 
@@ -271,8 +288,8 @@ public class MainActivity extends AppCompatActivity {
             });
             View v = findViewById(R.id.my_layout);
             v.setAlpha(1f);
-            currentBitmap = bitmap;
-            mImageView.setImageBitmap(currentBitmap);
+            calculatedBitmap = bitmap;
+            mImageView.setImageBitmap(calculatedBitmap);
         }
 
         /*----------------------------------------------------------*/
@@ -281,21 +298,30 @@ public class MainActivity extends AppCompatActivity {
         protected Bitmap doInBackground(Bitmap... bitmaps) {
 
 
-
             bm = bitmaps[0];
             Mat src = new Mat();
             Mat dest = new Mat();
+
             Utils.bitmapToMat(bm, src);
+
             Imgproc.cvtColor(src, dest, Imgproc.COLOR_BGR2GRAY);
+
 
 
             //TODO: find a "smart" threshold and apply it
 
+            Scalar lower = new Scalar(160,140,140);
+            Scalar upper = new Scalar(230,200,200);
+            Mat kernel = new Mat();
+
+          //  Core.inRange(dest,lower,upper,dest);
+
+         //  Imgproc.medianBlur(dest,dest,5);
            /*Convert the image to black and white based on a threshold*/
-            Imgproc.threshold(dest, dest, 150, 255, Imgproc.THRESH_BINARY_INV );
-            Imgproc.erode(dest,dest,new Mat());
-            Imgproc.erode(dest,dest,new Mat());
-            Imgproc.dilate(dest,dest,new Mat());
+            Imgproc.threshold(dest,dest,0,255,Imgproc.THRESH_BINARY+Imgproc.THRESH_OTSU);
+            Imgproc.morphologyEx(dest,dest,Imgproc.MORPH_OPEN,kernel);
+
+
 
 
             List<MatOfPoint> contours = new ArrayList<>();
@@ -312,9 +338,50 @@ public class MainActivity extends AppCompatActivity {
             return bm;
         }
       /*----------------------------------------------------------*/
-     /* private Mat detectSkin(Mat src)
-      {
 
-      }*/
+    }
+
+    public void onHistogramClicked(View v)
+    {
+        Mat src = new Mat();
+        Mat dest = new Mat();
+
+        Utils.bitmapToMat(currentBitmap, src);
+        Size rgbaSize = src.size();
+        // Set the amount of bars in the histogram.
+        int histSize = 256;
+        MatOfInt histogramSize = new MatOfInt(histSize);
+
+// Set the height of the histogram and width of the bar.
+        int histogramHeight = (int) rgbaSize.height;
+        int binWidth = 5;
+
+// Set the value range.
+        MatOfFloat histogramRange = new MatOfFloat(0f, 256f);
+
+// Create two separate lists: one for colors and one for channels (these will be used as separate datasets).
+        Scalar[] colorsRgb = new Scalar[]{new Scalar(200, 0, 0, 255), new Scalar(0, 200, 0, 255), new Scalar(0, 0, 200, 255)};
+        MatOfInt[] channels = new MatOfInt[]{new MatOfInt(0), new MatOfInt(1), new MatOfInt(2)};
+
+// Create an array to be saved in the histogram and a second array, on which the histogram chart will be drawn.
+        Mat[] histograms = new Mat[]{new Mat(), new Mat(), new Mat()};
+        Mat histMatBitmap = new Mat(rgbaSize, src.type());
+
+        for (int i = 0; i < channels.length; i++) {
+            Imgproc.calcHist(Collections.singletonList(src), channels[i], new Mat(), histograms[i], histogramSize, histogramRange);
+            Core.normalize(histograms[i], histograms[i], histogramHeight, 0, Core.NORM_INF);
+            for (int j = 0; j < histSize; j++) {
+                Point p1 = new Point(binWidth * (j - 1), histogramHeight - Math.round(histograms[i].get(j - 1, 0)[0]));
+                Point p2 = new Point(binWidth * j, histogramHeight - Math.round(histograms[i].get(j, 0)[0]));
+                Imgproc.line(histMatBitmap, p1, p2, colorsRgb[i], 2, 8, 0);
+            }
+        }
+
+        Bitmap bm = Bitmap.createBitmap(histMatBitmap.cols(), histMatBitmap.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(histMatBitmap, bm);
+        mImageView.setImageBitmap(bm);
+        Button b = (Button)findViewById(R.id.analyze_btn);
+        b.setEnabled(true);
+
     }
 }

@@ -3,4 +3,5 @@
     <string name="analyze">ANALYZE</string>
     <string name="browse">BROWSE</string>
     <string name="take_photo">TAKE PHOTO</string>
+    <string name="show_histogram">SHOW HISTOGRAM</string>
 </resources>
