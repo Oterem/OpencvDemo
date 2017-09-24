@@ -280,6 +280,8 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected Bitmap doInBackground(Bitmap... bitmaps) {
 
+
+
             bm = bitmaps[0];
             Mat src = new Mat();
             Mat dest = new Mat();
@@ -290,15 +292,19 @@ public class MainActivity extends AppCompatActivity {
             //TODO: find a "smart" threshold and apply it
 
            /*Convert the image to black and white based on a threshold*/
-            Imgproc.threshold(dest, dest, 127, 255, Imgproc.THRESH_BINARY_INV);
-            Imgproc.dilate(dest, dest, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(2, 2)));
+            Imgproc.threshold(dest, dest, 150, 255, Imgproc.THRESH_BINARY_INV );
+            Imgproc.erode(dest,dest,new Mat());
+            Imgproc.erode(dest,dest,new Mat());
+            Imgproc.dilate(dest,dest,new Mat());
+
+
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
-            Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+           Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
             /*Convert picture back to colors in order to see the red border surrounding the melanoma*/
             Imgproc.cvtColor(dest, dest, Imgproc.COLOR_GRAY2RGB);
             /*Painting red border around the melanoma based on the contour vector*/
-            Imgproc.drawContours(dest, contours, -1, new Scalar(255, 0, 0), 15);
+            Imgproc.drawContours(dest, contours, -1, new Scalar(255, 0, 0), 10);
             /*Filling the inside of the contours in white color in order to get rid of "noises" */
             Imgproc.drawContours(dest, contours, -1, new Scalar(255, 255, 255), -1);
             Bitmap bm = Bitmap.createBitmap(dest.cols(), dest.rows(), Bitmap.Config.ARGB_8888);
@@ -306,5 +312,9 @@ public class MainActivity extends AppCompatActivity {
             return bm;
         }
       /*----------------------------------------------------------*/
+     /* private Mat detectSkin(Mat src)
+      {
+
+      }*/
     }
 }
