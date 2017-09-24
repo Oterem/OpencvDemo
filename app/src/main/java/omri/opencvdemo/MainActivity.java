@@ -83,7 +83,7 @@ public class MainActivity extends AppCompatActivity {
 
     private ImageView mImageView;
     private Bitmap currentBitmap, calculatedBitmap, calculatedHistogram;
-    private Button browse_btn, camera_btn, analyze_btn;
+    private Button browse_btn, camera_btn, analyze_btn, histogram_btn;
     private static final String TAG = "MainActivity";
     private String currentPhotoPath, currentGalleryPath;
     private String current_open_image_path;
@@ -115,6 +115,8 @@ public class MainActivity extends AppCompatActivity {
         mImageView = (ImageView) findViewById(R.id.pic1);
         analyze_btn = (Button)findViewById(R.id.analyze_btn);
         analyze_btn.setEnabled(false);
+        histogram_btn = (Button)findViewById(R.id.hostogram_btn);
+        histogram_btn.setEnabled(false);
 
         //handling permissions in case of SDK >=23
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -186,6 +188,8 @@ public class MainActivity extends AppCompatActivity {
 
         if (resultCode == RESULT_OK) {
 
+            histogram_btn.setEnabled(true);
+
             switch (requestCode) {
                 case ACTION_IMAGE_CAPTURE: //in case user is taking a picture
 
@@ -233,6 +237,7 @@ public class MainActivity extends AppCompatActivity {
 
     /*----------------------------------------------------------------------------*/
     public void onBrowseClick(View v) {
+
         Intent intent = new Intent();
         intent.setType("image/*");
         intent.setAction(Intent.ACTION_GET_CONTENT);
