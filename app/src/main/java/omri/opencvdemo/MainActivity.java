@@ -3,6 +3,7 @@ package omri.opencvdemo;
 import android.Manifest;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.content.ActivityNotFoundException;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
@@ -77,6 +78,9 @@ import javax.xml.transform.Result;
 
 import static java.security.AccessController.getContext;
 
+import com.theartofdev.edmodo.cropper.CropImage;
+import com.theartofdev.edmodo.cropper.CropImageActivity;
+import com.theartofdev.edmodo.cropper.CropImageView;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -92,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA = 100;
     private Uri photoURI;
     private ProgressBar pb;
+    private Intent CropIntent;
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -186,6 +191,7 @@ public class MainActivity extends AppCompatActivity {
 
         super.onActivityResult(requestCode, resultCode, data);
 
+
         if (resultCode == RESULT_OK) {
 
             histogram_btn.setEnabled(true);
@@ -194,11 +200,14 @@ public class MainActivity extends AppCompatActivity {
                 case ACTION_IMAGE_CAPTURE: //in case user is taking a picture
 
                     try {
+
+                        Intent intent = CropImage.activity(photoURI).getIntent( getBaseContext());
+                        startActivityForResult(intent,CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
                         Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), photoURI);
                         currentBitmap = bm;
                         setPic(bm);
                     } catch (Exception e) {
-                        Toast.makeText(getApplicationContext(), "Error loading picture", Toast.LENGTH_LONG).show();
+                        Toast.makeText(getApplicationContext(), "Error taking picture", Toast.LENGTH_LONG).show();
                     }
                     break;
 
@@ -213,6 +222,23 @@ public class MainActivity extends AppCompatActivity {
                         Toast.makeText(getApplicationContext(), "Error loading picture", Toast.LENGTH_LONG).show();
                     }
                     break;
+                case  CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE:
+                    CropImage.ActivityResult result = CropImage.getActivityResult(data);
+                    Uri resultUri = result.getUri();
+                    try{
+                        Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), resultUri);
+                        currentBitmap = bm;
+                        setPic(bm);
+                    }
+                    catch(Exception e)
+                    {
+                        Toast.makeText(getApplicationContext(), "Error cropping picture", Toast.LENGTH_LONG).show();
+                    }
+                    break;
+
+
+
+
             }
         }
     }
@@ -340,6 +366,10 @@ public class MainActivity extends AppCompatActivity {
             Imgproc.drawContours(dest, contours, -1, new Scalar(255, 255, 255), -1);
             Bitmap bm = Bitmap.createBitmap(dest.cols(), dest.rows(), Bitmap.Config.ARGB_8888);
             Utils.matToBitmap(dest, bm);
+            src.release();
+            dest.release();
+            hierarchy.release();
+            kernel.release();
             return bm;
         }
       /*----------------------------------------------------------*/
@@ -387,6 +417,18 @@ public class MainActivity extends AppCompatActivity {
         mImageView.setImageBitmap(bm);
         Button b = (Button)findViewById(R.id.analyze_btn);
         b.setEnabled(true);
+        src.release();
+        dest.release();
+        histogramSize.release();
+        histMatBitmap.release();
+        for(int i=0;i<channels.length;i++)
+        {
+            channels[i].release();
+        }
+        for(int i=0;i<histograms.length;i++)
+        {
+            histograms[i].release();
+        }
 
     }
 }
