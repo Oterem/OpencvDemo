@@ -1,86 +1,61 @@
 package omri.opencvdemo;
 
-import android.Manifest;
+
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
-import android.content.ActivityNotFoundException;
-import android.content.ContentResolver;
-import android.content.ContentUris;
-import android.content.Context;
-import android.content.CursorLoader;
+
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.database.Cursor;
+
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Camera;
+
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.DocumentsContract;
+
 import android.provider.MediaStore;
-import android.provider.OpenableColumns;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
+
 import android.support.v4.content.FileProvider;
-import android.support.v4.view.ViewPager;
-import android.support.v4.widget.DrawerLayout;
-import android.support.v7.app.ActionBar;
+
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
-import android.widget.TextView;
+
 import android.widget.Toast;
 
 import org.opencv.android.Utils;
-import org.opencv.calib3d.Calib3d;
+
 import org.opencv.core.Core;
-import org.opencv.core.CvType;
+
 import org.opencv.core.Mat;
-import org.opencv.core.MatOfDMatch;
+
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
-import org.opencv.core.MatOfKeyPoint;
+
 import org.opencv.core.MatOfPoint;
-import org.opencv.core.MatOfPoint2f;
+
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 
-import org.opencv.features2d.DescriptorExtractor;
-import org.opencv.features2d.DescriptorMatcher;
-import org.opencv.features2d.FeatureDetector;
 
 import org.opencv.imgproc.Imgproc;
 import org.opencv.android.OpenCVLoader;
-import org.opencv.core.Mat;
-import org.opencv.imgcodecs.Imgcodecs;
-import org.opencv.photo.Photo;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URISyntaxException;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.Vector;
-
-import javax.xml.transform.Result;
-
-import static java.security.AccessController.getContext;
-
 import com.theartofdev.edmodo.cropper.CropImage;
-import com.theartofdev.edmodo.cropper.CropImageActivity;
-import com.theartofdev.edmodo.cropper.CropImageView;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -421,14 +396,16 @@ public class MainActivity extends AppCompatActivity {
         dest.release();
         histogramSize.release();
         histMatBitmap.release();
-        for(int i=0;i<channels.length;i++)
+
+        for (MatOfInt mat:channels)
         {
-            channels[i].release();
+            mat.release();
         }
-        for(int i=0;i<histograms.length;i++)
+        for (Mat mat:histograms)
         {
-            histograms[i].release();
+            mat.release();
         }
+        
 
     }
 }
