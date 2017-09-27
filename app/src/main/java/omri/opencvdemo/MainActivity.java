@@ -22,6 +22,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 
@@ -63,7 +64,7 @@ public class MainActivity extends AppCompatActivity {
 
     private ImageView mImageView;
     private Bitmap currentBitmap, calculatedBitmap, calculatedHistogram;
-    private Button browse_btn, camera_btn, analyze_btn, histogram_btn;
+    private ImageButton browse_btn, camera_btn, analyze_btn, histogram_btn;
     private static final String TAG = "MainActivity";
     private String currentPhotoPath, currentGalleryPath;
     private String current_open_image_path;
@@ -72,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA = 100;
     private Uri photoURI;
     private ProgressBar pb;
-    private Intent CropIntent;
+
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -94,9 +95,9 @@ public class MainActivity extends AppCompatActivity {
         pb = (ProgressBar) findViewById(R.id.progressbar_loading);
         pb.setVisibility(View.GONE);
         mImageView = (ImageView) findViewById(R.id.pic1);
-        analyze_btn = (Button)findViewById(R.id.analyze_btn);
+        analyze_btn = (ImageButton)findViewById(R.id.analyze_btn);
         analyze_btn.setEnabled(false);
-        histogram_btn = (Button)findViewById(R.id.hostogram_btn);
+        histogram_btn = (ImageButton)findViewById(R.id.hostogram_btn);
         histogram_btn.setEnabled(false);
 
         //handling permissions in case of SDK >=23
@@ -107,11 +108,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    /**
-     * A native method that is implemented by the 'native-lib' native library,
-     * which is packaged with this application.
-     */
-    public native String stringFromJNI();
 
 
     /*----------------------------------------------------------------------------*/
@@ -227,14 +223,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    /*----------------------------------------------------------------------------*/
-    private void galleryAddPic() {
-        Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-        File f = new File(currentPhotoPath);
-        Uri contentUri = Uri.fromFile(f);
-        mediaScanIntent.setData(contentUri);
-        this.sendBroadcast(mediaScanIntent);
-    }
 
 
     /*----------------------------------------------------------------------------*/
@@ -252,7 +240,7 @@ public class MainActivity extends AppCompatActivity {
         MyAsyncTask work = new MyAsyncTask();
         calculatedBitmap = currentBitmap;
         work.execute(calculatedBitmap);
-        Button b = (Button)findViewById(R.id.analyze_btn);
+        ImageButton b = (ImageButton)findViewById(R.id.analyze_btn);
         b.setEnabled(false);
     }
     /*----------------------------------------------------------------------------*/
@@ -270,6 +258,7 @@ public class MainActivity extends AppCompatActivity {
             View v = findViewById(R.id.my_layout);
             v.setAlpha(.5f);
             pb.setVisibility(View.VISIBLE);
+
             pb.animate().setDuration(shortAnimTime).alpha(
                     1).setListener(new AnimatorListenerAdapter() {
                 @Override
@@ -392,7 +381,7 @@ public class MainActivity extends AppCompatActivity {
         Bitmap bm = Bitmap.createBitmap(histMatBitmap.cols(), histMatBitmap.rows(), Bitmap.Config.ARGB_8888);
         Utils.matToBitmap(histMatBitmap, bm);
         mImageView.setImageBitmap(bm);
-        Button b = (Button)findViewById(R.id.analyze_btn);
+        ImageButton b = (ImageButton)findViewById(R.id.analyze_btn);
         b.setEnabled(true);
         src.release();
         dest.release();
@@ -407,7 +396,7 @@ public class MainActivity extends AppCompatActivity {
         {
             mat.release();
         }
-        
+
 
     }
 }
