@@ -38,13 +38,17 @@ import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
 
 import org.opencv.core.MatOfPoint;
-
+import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 
 
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.imgproc.Moments;
+import org.opencv.photo.Photo;
 import org.opencv.android.OpenCVLoader;
 
 import java.io.File;
@@ -56,6 +60,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+
 import com.theartofdev.edmodo.cropper.CropImage;
 
 public class MainActivity extends AppCompatActivity {
@@ -72,7 +77,6 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA = 100;
     private Uri photoURI;
     private ProgressBar pb;
-
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -94,9 +98,9 @@ public class MainActivity extends AppCompatActivity {
         pb = (ProgressBar) findViewById(R.id.progressbar_loading);
         pb.setVisibility(View.GONE);
         mImageView = (ImageView) findViewById(R.id.pic1);
-        analyze_btn = (ImageButton)findViewById(R.id.analyze_btn);
+        analyze_btn = (ImageButton) findViewById(R.id.analyze_btn);
         analyze_btn.setEnabled(false);
-        histogram_btn = (ImageButton)findViewById(R.id.hostogram_btn);
+        histogram_btn = (ImageButton) findViewById(R.id.hostogram_btn);
         histogram_btn.setEnabled(false);
 
         //handling permissions in case of SDK >=23
@@ -105,8 +109,6 @@ public class MainActivity extends AppCompatActivity {
             requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
         }
     }
-
-
 
 
     /*----------------------------------------------------------------------------*/
@@ -172,8 +174,8 @@ public class MainActivity extends AppCompatActivity {
 
                     try {
 
-                        Intent intent = CropImage.activity(photoURI).getIntent( getBaseContext());
-                        startActivityForResult(intent,CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
+                        Intent intent = CropImage.activity(photoURI).getIntent(getBaseContext());
+                        startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
                         Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), photoURI);
                         currentBitmap = bm;
                         setPic(bm);
@@ -193,21 +195,17 @@ public class MainActivity extends AppCompatActivity {
                         Toast.makeText(getApplicationContext(), "Error loading picture", Toast.LENGTH_LONG).show();
                     }
                     break;
-                case  CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE:
+                case CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE:
                     CropImage.ActivityResult result = CropImage.getActivityResult(data);
                     Uri resultUri = result.getUri();
-                    try{
+                    try {
                         Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), resultUri);
                         currentBitmap = bm;
                         setPic(bm);
-                    }
-                    catch(Exception e)
-                    {
+                    } catch (Exception e) {
                         Toast.makeText(getApplicationContext(), "Error cropping picture", Toast.LENGTH_LONG).show();
                     }
                     break;
-
-
 
 
             }
@@ -220,8 +218,6 @@ public class MainActivity extends AppCompatActivity {
         mImageView.setImageBitmap(bm);
         analyze_btn.setEnabled(true);
     }
-
-
 
 
     /*----------------------------------------------------------------------------*/
@@ -239,7 +235,7 @@ public class MainActivity extends AppCompatActivity {
         MyAsyncTask work = new MyAsyncTask();
         calculatedBitmap = currentBitmap;
         work.execute(calculatedBitmap);
-        ImageButton b = (ImageButton)findViewById(R.id.analyze_btn);
+        ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
         b.setEnabled(false);
     }
     /*----------------------------------------------------------------------------*/
@@ -292,41 +288,29 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected Bitmap doInBackground(Bitmap... bitmaps) {
 
-
             bm = bitmaps[0];
             Mat src = new Mat();
-            Mat dest = new Mat();
-
+            Mat dest = src.clone();
             Utils.bitmapToMat(bm, src);
-
             Imgproc.cvtColor(src, dest, Imgproc.COLOR_BGR2GRAY);
-
-
-
-            //TODO: find a "smart" threshold and apply it
-
-            Scalar lower = new Scalar(160,140,140);
-            Scalar upper = new Scalar(230,200,200);
             Mat kernel = new Mat();
+            Imgproc.morphologyEx(dest, dest, Imgproc.MORPH_OPEN, kernel);
+            Imgproc.blur(dest, dest, new org.opencv.core.Size(12, 12));
 
-          //  Core.inRange(dest,lower,upper,dest);
-
-         //  Imgproc.medianBlur(dest,dest,5);
            /*Convert the image to black and white based on a threshold*/
-            Imgproc.threshold(dest,dest,0,255,Imgproc.THRESH_BINARY+Imgproc.THRESH_OTSU);
-            Imgproc.morphologyEx(dest,dest,Imgproc.MORPH_OPEN,kernel);
-
-
+            Imgproc.threshold(dest, dest, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
 
 
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
-           Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
+            Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_TC89_KCOS);
             /*Convert picture back to colors in order to see the red border surrounding the melanoma*/
+
             Imgproc.cvtColor(dest, dest, Imgproc.COLOR_GRAY2RGB);
             /*Painting red border around the melanoma based on the contour vector*/
             Imgproc.drawContours(dest, contours, -1, new Scalar(255, 0, 0), 10);
             /*Filling the inside of the contours in white color in order to get rid of "noises" */
+
             Imgproc.drawContours(dest, contours, -1, new Scalar(255, 255, 255), -1);
             Bitmap bm = Bitmap.createBitmap(dest.cols(), dest.rows(), Bitmap.Config.ARGB_8888);
             Utils.matToBitmap(dest, bm);
@@ -340,8 +324,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    public void onHistogramClicked(View v)
-    {
+    public void onHistogramClicked(View v) {
         Mat src = new Mat();
         Mat dest = new Mat();
 
@@ -379,19 +362,17 @@ public class MainActivity extends AppCompatActivity {
         Bitmap bm = Bitmap.createBitmap(histMatBitmap.cols(), histMatBitmap.rows(), Bitmap.Config.ARGB_8888);
         Utils.matToBitmap(histMatBitmap, bm);
         mImageView.setImageBitmap(bm);
-        ImageButton b = (ImageButton)findViewById(R.id.analyze_btn);
+        ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
         b.setEnabled(true);
         src.release();
         dest.release();
         histogramSize.release();
         histMatBitmap.release();
 
-        for (MatOfInt mat:channels)
-        {
+        for (MatOfInt mat : channels) {
             mat.release();
         }
-        for (Mat mat:histograms)
-        {
+        for (Mat mat : histograms) {
             mat.release();
         }
 
