@@ -43,6 +43,7 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 
 
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.android.OpenCVLoader;
 
@@ -324,15 +325,15 @@ public class MainActivity extends AppCompatActivity {
 
          //  Imgproc.medianBlur(dest,dest,5);
            /*Convert the image to black and white based on a threshold*/
+            Imgproc.GaussianBlur(dest,dest,new Size(5,5),0);
             Imgproc.threshold(dest,dest,0,255,Imgproc.THRESH_BINARY+Imgproc.THRESH_OTSU);
             Imgproc.morphologyEx(dest,dest,Imgproc.MORPH_OPEN,kernel);
 
 
 
-
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
-           Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
+           Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_TC89_KCOS);
             /*Convert picture back to colors in order to see the red border surrounding the melanoma*/
             Imgproc.cvtColor(dest, dest, Imgproc.COLOR_GRAY2RGB);
             /*Painting red border around the melanoma based on the contour vector*/
@@ -378,6 +379,7 @@ public class MainActivity extends AppCompatActivity {
         Mat histMatBitmap = new Mat(rgbaSize, src.type());
 
         for (int i = 0; i < channels.length; i++) {
+
             Imgproc.calcHist(Collections.singletonList(src), channels[i], new Mat(), histograms[i], histogramSize, histogramRange);
             Core.normalize(histograms[i], histograms[i], histogramHeight, 0, Core.NORM_INF);
             for (int j = 0; j < histSize; j++) {
