@@ -32,6 +32,7 @@ import org.opencv.android.Utils;
 
 import org.opencv.core.Core;
 
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import org.opencv.core.MatOfFloat;
@@ -169,6 +170,7 @@ public class MainActivity extends AppCompatActivity {
 
             histogram_btn.setEnabled(true);
 
+
             switch (requestCode) {
                 case ACTION_IMAGE_CAPTURE: //in case user is taking a picture
 
@@ -188,6 +190,8 @@ public class MainActivity extends AppCompatActivity {
                     try {
                         Uri receivedUri = data.getData();
                         photoURI = receivedUri;
+                        Intent intent = CropImage.activity(photoURI).getIntent(getBaseContext());
+                        startActivityForResult(intent,CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
                         Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), receivedUri);
                         currentBitmap = bm;
                         setPic(bm);
@@ -290,32 +294,98 @@ public class MainActivity extends AppCompatActivity {
 
             bm = bitmaps[0];
             Mat src = new Mat();
-            Mat dest = src.clone();
-            Utils.bitmapToMat(bm, src);
-            Imgproc.cvtColor(src, dest, Imgproc.COLOR_BGR2GRAY);
-            Mat kernel = new Mat();
-            Imgproc.morphologyEx(dest, dest, Imgproc.MORPH_OPEN, kernel);
-            Imgproc.blur(dest, dest, new org.opencv.core.Size(12, 12));
+            Mat dest = new Mat();
 
-           /*Convert the image to black and white based on a threshold*/
-            Imgproc.threshold(dest, dest, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
+            Utils.bitmapToMat(bm, src);
+
+            Imgproc.cvtColor(src, dest, Imgproc.COLOR_BGR2GRAY);
+
+
+
+            Mat kernel = new Mat();
+
+            Imgproc.threshold(dest,dest,0,255,Imgproc.THRESH_BINARY+Imgproc.THRESH_OTSU);
+            Imgproc.morphologyEx(dest,dest,Imgproc.MORPH_OPEN,kernel);
+
 
 
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
+
             Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_TC89_KCOS);
             /*Convert picture back to colors in order to see the red border surrounding the melanoma*/
-
-            Imgproc.cvtColor(dest, dest, Imgproc.COLOR_GRAY2RGB);
+           // Imgproc.cvtColor(dest, dest, Imgproc.COLOR_GRAY2RGB);
             /*Painting red border around the melanoma based on the contour vector*/
-            Imgproc.drawContours(dest, contours, -1, new Scalar(255, 0, 0), 10);
+          //  Imgproc.drawContours(dest, contours, -1, new Scalar(255, 0, 0), 10);
             /*Filling the inside of the contours in white color in order to get rid of "noises" */
+           // Imgproc.drawContours(dest, contours, -1, new Scalar(255, 255, 255), -1);
 
-            Imgproc.drawContours(dest, contours, -1, new Scalar(255, 255, 255), -1);
-            Bitmap bm = Bitmap.createBitmap(dest.cols(), dest.rows(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(dest, bm);
+
+
+            List<MatOfPoint> contoursClone = new ArrayList<>();
+
+            int scale = 0;
+            Mat cloneDest = dest.clone();
+            double area = 0;
+
+
+
+
+
+            int num_of_contours = contours.size();
+           while (num_of_contours > 5 & scale <= 14) {
+                contours.clear();
+                contoursClone.clear();
+                scale++;
+                Imgproc.blur(dest, dest, new org.opencv.core.Size(scale, scale));
+                Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
+                for (int i = 0; i < contours.size(); i++) {
+
+                    area = Imgproc.contourArea(contours.get(i));
+                    if (area > 500)
+                        contoursClone.add(contours.get(i));
+
+                }
+
+
+                num_of_contours = contoursClone.size();
+            }
+
+
+           /*For printing the contours's area*/
+         /*  for (int i = 0; i < contoursClone.size(); i++) {
+
+                area = Imgproc.contourArea(contoursClone.get(i));
+                Log.i(TAG, "doInBackground: clone " + area);
+
+            }*/
+
+
+            Imgproc.erode(cloneDest, cloneDest, new Mat(15, 15, CvType.CV_8U));
+            Imgproc.cvtColor(cloneDest, cloneDest, Imgproc.COLOR_GRAY2RGB);
+            Imgproc.drawContours(cloneDest, contoursClone, -1, new Scalar(255, 0, 0), 6);
+
+
+
+
+            /*For finding centroid*/
+            double minimalRadius = 0;
+            Imgproc.drawContours(cloneDest, contoursClone, -1, new Scalar(255, 255, 255), -1);
+            List<Moments> mu = new ArrayList<Moments>(contours.size());
+            for (int i = 0; i < contoursClone.size(); i++) {
+                mu.add(i, Imgproc.moments(contoursClone.get(i), false));
+                Moments p = mu.get(i);
+                int x = (int) (p.get_m10() / p.get_m00());
+                int y = (int) (p.get_m01() / p.get_m00());
+                Imgproc.circle(cloneDest, new Point(x, y), 10, new Scalar(0, 0, 255), 8);
+            }
+
+
+            Bitmap bm = Bitmap.createBitmap(cloneDest.cols(), cloneDest.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(cloneDest, bm);
             src.release();
             dest.release();
+            cloneDest.release();
             hierarchy.release();
             kernel.release();
             return bm;
