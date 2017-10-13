@@ -8,4 +8,5 @@
     <string name="image_proccess">image proccess</string>
     <string name="calculating_histogram">calculating histogram</string>
     <string name="launching_camera">launching camera</string>
+    <string name="presenting_images">presenting images</string>
 </resources>
