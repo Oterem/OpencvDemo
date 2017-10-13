@@ -175,10 +175,7 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(takePictureIntent, ACTION_IMAGE_CAPTURE);
             }
         }
-
-
     }
-
 
      /*----------------------------------------------------------------------------*/
 
@@ -200,9 +197,6 @@ public class MainActivity extends AppCompatActivity {
 
                         Intent intent = CropImage.activity(photoURI).getIntent(getBaseContext());
                         startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
-                        Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), photoURI);
-                        currentBitmap = bm;
-                        setPic(bm, photoURI);
                     } catch (Exception e) {
                         Toast.makeText(getApplicationContext(), "Error taking picture", Toast.LENGTH_LONG).show();
                     }
@@ -210,25 +204,20 @@ public class MainActivity extends AppCompatActivity {
 
                 case ACTION_GET_CONTENT: //in case user is loading picture from gallery
                     try {
-                        Uri receivedUri = data.getData();
-                        photoURI = receivedUri;
+                        photoURI = data.getData();
                         Intent intent = CropImage.activity(photoURI).getIntent(getBaseContext());
                         startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
-                       /* Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), receivedUri);
-                        currentBitmap = bm;
-                        setPic(bm, receivedUri);*/
                     } catch (Exception e) {
                         Toast.makeText(getApplicationContext(), "Error loading picture", Toast.LENGTH_LONG).show();
                     }
                     break;
-                case CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE:
+                case CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE: //cropping image
                     CropImage.ActivityResult result = CropImage.getActivityResult(data);
                     Uri resultUri = result.getUri();
                     try {
 
                         Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), resultUri);
                         currentBitmap = bm;
-                        //getBlobCoordinates();
                         setPic(bm, resultUri);
 
 
@@ -246,136 +235,85 @@ public class MainActivity extends AppCompatActivity {
     private void getBlobCoordinates() {
         seed = new Point();
 
+        /*Building the pop up alert*/
+        final AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this)
+                .setMessage("Click on suspicions blob")
+                .setPositiveButton("GOT IT", null).show();
 
-        final AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
-        alertDialog.setTitle("Alert");
-        alertDialog.setMessage("Click on suspicions blob");
-        alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.dismiss();
-                    }
-                });
-        alertDialog.show();
+        //setting a listener on imageview for sampling points
         mImageView.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View view, MotionEvent motionEvent) {
 
 
+                //for sampling the point from not (not blob)
                 if (STATE == SAMPLE_SKIN) {
                     skin = new Point();
-                    int[] locations = new int[2];
-                    view.getLocationOnScreen(locations);
-                    Log.i(TAG, "onTouch: locations are:" + locations[0] + ", " + locations[1]);
-
-
-                    skin.x = (int) motionEvent.getRawX();
-                    skin.y = (int) motionEvent.getRawY();
-
+                    int[] viewLocations = new int[2];
+                    view.getLocationOnScreen(viewLocations);
+                    Log.i(TAG, "getLocationOnScreen: " + "x: " + viewLocations[0] + " ,y: " + viewLocations[1]);
+                    int[] rootLocations = new int[2];
+                    View root = view.getRootView().findViewById(R.id.my_layout);
+                    root.getLocationInWindow(rootLocations);
+                    skin.x = rootLocations[0] + motionEvent.getRawX();
+                    skin.y = rootLocations[1] + motionEvent.getRawY();
+                    Log.i(TAG, "onTouch: locations are:" + skin.x + ", " + skin.y);
                     mImageView.setOnTouchListener(null);
-                    STATE=SAMPLE_BLOB;
-
-
+                    STATE = SAMPLE_BLOB;
                     Log.i(TAG, "onTouch: seed is:" + seed.x + ", " + seed.y);
                     Log.i(TAG, "onTouch: skin is:" + skin.x + ", " + skin.y);
-                   // drawCircle();
+
+                    //todo: find correct coordinates relative to image
+                    drawPointsOnImage();
 
 
-                    MyAsyncTask work = new MyAsyncTask();
+                    //uncomment this section to process image
+                    /* MyAsyncTask work = new MyAsyncTask();
                     calculatedBitmap = currentBitmap;
                     work.execute(calculatedBitmap);
                     ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
-                    b.setEnabled(false);
+                    b.setEnabled(false);*/
                     return false;
 
                 }
 
+                //for sampling the point from suspicious blob
                 if (STATE == SAMPLE_BLOB) {
-                    seed.x = (int) motionEvent.getRawX();
-                    seed.y = (int) motionEvent.getRawY();
-
-                    alertDialog.setTitle("Alert");
+                    int[] locations = new int[2];
+                    view.getLocationOnScreen(locations);
+                    seed.x = (int) motionEvent.getRawX() + view.getTop();
+                    seed.y = (int) motionEvent.getRawY() + view.getLeft();
                     alertDialog.setMessage("Click on the skin");
-                    alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
-                            new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog, int which) {
-                                    dialog.dismiss();
-                                }
-                            });
                     alertDialog.show();
                     STATE = SAMPLE_SKIN;
                     return false;
                 }
-
-
-
-
-
-
-             /*   MyAsyncTask work = new MyAsyncTask();
-                calculatedBitmap = currentBitmap;
-                work.execute(calculatedBitmap);
-                ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
-                b.setEnabled(false);*/
                 return false;
 
             }
         });
-
-
     }
 
-
-    private void drawCircle() {
-        Bitmap bitmap = Bitmap.createBitmap(currentBitmap.getWidth(),currentBitmap.getHeight(), Bitmap.Config.RGB_565);
-
-        //bitmap.setPixel(mImageView.getWidth(), mImageView.getHeight(), 0);
+    /*------------------------------------------------------------------------------------------------------*/
+    private void drawPointsOnImage() {
+        Bitmap bitmap;
+        bitmap = currentBitmap.copy(currentBitmap.getConfig(), true);
         Canvas canvas = new Canvas(bitmap);
         canvas.drawBitmap(bitmap, 0, 0, null);
         Paint paint = new Paint();
         paint.setColor(Color.RED);
         paint.setStyle(Paint.Style.FILL_AND_STROKE);
-        canvas.drawCircle((float)seed.x,(float)seed.y,10,paint);
-        mImageView.setImageDrawable(new BitmapDrawable(getBaseContext().getResources(),bitmap)) ;
-
-
-    }
-    /*-------------------------------------------------------------------*/
-    public void getSkinCoordinates() {
-        skin = new Point();
-        AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
-        alertDialog.setTitle("Alert");
-        alertDialog.setMessage("Please click on skin in picture, but not the blob");
-        alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.dismiss();
-                    }
-                });
-
-        mImageView.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View view, MotionEvent motionEvent) {
-                skin.x = (int) motionEvent.getRawX();
-                skin.y = (int) motionEvent.getRawY();
-
-
-                Log.i(TAG, "onTouch: skin is:" + skin.x + ", " + skin.y);
-              //  mImageView.setImageBitmap(drawCircle());
-                return true;
-            }
-        });
-
-        // mImageView.setOnTouchListener(null);
+        canvas.drawCircle((float) seed.x, (float) seed.y, 30, paint);
+        paint.setColor(Color.BLUE);
+        canvas.drawCircle((float) skin.x, (float) skin.y, 30, paint);
+        mImageView.setImageDrawable(new BitmapDrawable(getBaseContext().getResources(), bitmap));
     }
 
 
     /*----------------------------------------------------------------------------*/
     private void setPic(Bitmap bm, Uri resultUri) {
 
-
         mImageView = (ImageView) findViewById(R.id.pic1);
-
         Glide
                 .with(this)
                 .asBitmap().load(resultUri).into(mImageView);
@@ -396,7 +334,6 @@ public class MainActivity extends AppCompatActivity {
 
     public void onAnalyzeClick(View v) {
 
-        //insert here info dialog fro user
         getBlobCoordinates();
 
 
@@ -465,8 +402,8 @@ public class MainActivity extends AppCompatActivity {
 
             Mat dest = new Mat();
 
-          //  Bitmap resultBitmap = Bitmap.createBitmap(bm, 0, 0, bm.getWidth() - 1, bm.getHeight() - 1);
-           // Utils.bitmapToMat(resultBitmap, src);
+            //  Bitmap resultBitmap = Bitmap.createBitmap(bm, 0, 0, bm.getWidth() - 1, bm.getHeight() - 1);
+            // Utils.bitmapToMat(resultBitmap, src);
           /*  Mat mask = new Mat(dest.cols()+2,dest.rows()+2,CvType.CV_8UC1);
             Color blob = new Color();
             int pixel = bm.getPixel((int)seed.x,(int)seed.y);
@@ -506,7 +443,7 @@ public class MainActivity extends AppCompatActivity {
 
             Imgproc.floodFill(src, mask, seed, new Scalar(0, 0, 0), new Rect(), lower, upper, FLOODFILL_MASK_ONLY);*/
 
-            Utils.bitmapToMat(bm,src);
+            Utils.bitmapToMat(bm, src);
             Imgproc.cvtColor(src, dest, Imgproc.COLOR_BGR2GRAY);
             Mat kernel = new Mat();
 
@@ -526,7 +463,7 @@ public class MainActivity extends AppCompatActivity {
 
             int scale = 0;
             Mat cloneDest = dest.clone();
-            double area = 0;
+            double area;
 
 
             int num_of_contours = contours.size();
@@ -549,23 +486,14 @@ public class MainActivity extends AppCompatActivity {
             }
 
 
-
-
-
-
             Imgproc.erode(cloneDest, cloneDest, new Mat(15, 15, CvType.CV_8U));
             Imgproc.cvtColor(cloneDest, cloneDest, Imgproc.COLOR_GRAY2RGB);
             Imgproc.drawContours(cloneDest, contoursClone, -1, new Scalar(255, 0, 0), 6);
 
 
-
-
-
-
-
             double minimalRadius = 0;
             Imgproc.drawContours(cloneDest, contoursClone, -1, new Scalar(255, 255, 255), -1);
-            List<Moments> mu = new ArrayList<Moments>(contours.size());
+            List<Moments> mu = new ArrayList<>(contours.size());
             for (int i = 0; i < contoursClone.size(); i++) {
                 mu.add(i, Imgproc.moments(contoursClone.get(i), false));
                 Moments p = mu.get(i);
@@ -579,9 +507,9 @@ public class MainActivity extends AppCompatActivity {
             Utils.matToBitmap(dest, bm);
             src.release();
             dest.release();
-              cloneDest.release();
-             hierarchy.release();
-             kernel.release();
+            cloneDest.release();
+            hierarchy.release();
+            kernel.release();
             return bm;
         }
       /*----------------------------------------------------------*/
