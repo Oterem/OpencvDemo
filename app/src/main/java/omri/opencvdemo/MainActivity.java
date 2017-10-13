@@ -305,6 +305,7 @@ public class MainActivity extends AppCompatActivity {
         paint.setStyle(Paint.Style.FILL_AND_STROKE);
         canvas.drawCircle((float) seed.x, (float) seed.y, 30, paint);
         paint.setColor(Color.BLUE);
+        
         canvas.drawCircle((float) skin.x, (float) skin.y, 30, paint);
         mImageView.setImageDrawable(new BitmapDrawable(getBaseContext().getResources(), bitmap));
     }
