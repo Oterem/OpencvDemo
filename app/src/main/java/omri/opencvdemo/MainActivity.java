@@ -4,10 +4,20 @@ package omri.opencvdemo;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 
+import com.bumptech.glide.annotation.GlideModule;
+import com.bumptech.glide.module.AppGlideModule;
+
+import android.content.DialogInterface;
 import android.content.Intent;
 
 import android.graphics.Bitmap;
 
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -18,10 +28,13 @@ import android.provider.MediaStore;
 
 import android.support.v4.content.FileProvider;
 
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 
@@ -31,47 +44,66 @@ import org.opencv.android.Utils;
 
 import org.opencv.core.Core;
 
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
 
 import org.opencv.core.MatOfPoint;
-
+import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 
 
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.imgproc.Moments;
+import org.opencv.photo.Photo;
 import org.opencv.android.OpenCVLoader;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 
+import java.lang.reflect.Array;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Queue;
+import java.util.Vector;
+
+import com.bumptech.glide.Glide;
 import com.theartofdev.edmodo.cropper.CropImage;
+
+import static org.opencv.imgproc.Imgproc.COLOR_BGR2GRAY;
+import static org.opencv.imgproc.Imgproc.FLOODFILL_MASK_ONLY;
 
 public class MainActivity extends AppCompatActivity {
 
 
     private ImageView mImageView;
     private Bitmap currentBitmap, calculatedBitmap, calculatedHistogram;
-    private Button browse_btn, camera_btn, analyze_btn, histogram_btn;
+    private ImageButton browse_btn, camera_btn, analyze_btn, histogram_btn;
     private static final String TAG = "MainActivity";
     private String currentPhotoPath, currentGalleryPath;
     private String current_open_image_path;
-    static final int ACTION_IMAGE_CAPTURE = 1;
-    static final int ACTION_GET_CONTENT = 2;
+    private static final int ACTION_IMAGE_CAPTURE = 1;
+    private static final int ACTION_GET_CONTENT = 2;
     private static final int REQUEST_CAMERA = 100;
+    private static int STATE = 3;
+    private static final int SAMPLE_BLOB = 3;
+    private static final int SAMPLE_SKIN = 4;
     private Uri photoURI;
     private ProgressBar pb;
-    private Intent CropIntent;
+    private Point seed, skin;
+    private int[] seedBgr, skinBgr;
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -93,9 +125,9 @@ public class MainActivity extends AppCompatActivity {
         pb = (ProgressBar) findViewById(R.id.progressbar_loading);
         pb.setVisibility(View.GONE);
         mImageView = (ImageView) findViewById(R.id.pic1);
-        analyze_btn = (Button)findViewById(R.id.analyze_btn);
+        analyze_btn = (ImageButton) findViewById(R.id.analyze_btn);
         analyze_btn.setEnabled(false);
-        histogram_btn = (Button)findViewById(R.id.hostogram_btn);
+        histogram_btn = (ImageButton) findViewById(R.id.hostogram_btn);
         histogram_btn.setEnabled(false);
 
         //handling permissions in case of SDK >=23
@@ -106,14 +138,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    /**
-     * A native method that is implemented by the 'native-lib' native library,
-     * which is packaged with this application.
-     */
-    public native String stringFromJNI();
-
-
     /*----------------------------------------------------------------------------*/
+
+    /**
+     * Returns a unique file for an image.
+     *
+     * @return the created file for saving an image.
+     * @throws IOException in case of failure in file allocation
+     */
     private File createImageFile() throws IOException {
         // Create an image file name
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
@@ -131,10 +163,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /*----------------------------------------------------------------------------*/
+
+    /**
+     * Creates an image capture intent, launching camera and after taking picture,
+     * stores the image on internal storage.
+     *
+     * @param v current view.
+     */
     public void launchCamera(View v) {
 
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-
         // Ensure that there's a camera activity to handle the intent
         if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
             // Create the File where the photo should go
@@ -154,33 +192,31 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(takePictureIntent, ACTION_IMAGE_CAPTURE);
             }
         }
-
-
     }
-
 
      /*----------------------------------------------------------------------------*/
 
+
+    /**
+     * For handling different intents
+     */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 
         super.onActivityResult(requestCode, resultCode, data);
 
-
         if (resultCode == RESULT_OK) {
 
             histogram_btn.setEnabled(true);
+
 
             switch (requestCode) {
                 case ACTION_IMAGE_CAPTURE: //in case user is taking a picture
 
                     try {
 
-                        Intent intent = CropImage.activity(photoURI).getIntent( getBaseContext());
-                        startActivityForResult(intent,CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
-                        Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), photoURI);
-                        currentBitmap = bm;
-                        setPic(bm);
+                        Intent intent = CropImage.activity(photoURI).getIntent(getBaseContext());
+                        startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
                     } catch (Exception e) {
                         Toast.makeText(getApplicationContext(), "Error taking picture", Toast.LENGTH_LONG).show();
                     }
@@ -188,30 +224,26 @@ public class MainActivity extends AppCompatActivity {
 
                 case ACTION_GET_CONTENT: //in case user is loading picture from gallery
                     try {
-                        Uri receivedUri = data.getData();
-                        photoURI = receivedUri;
-                        Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), receivedUri);
-                        currentBitmap = bm;
-                        setPic(bm);
+                        photoURI = data.getData();
+                        Intent intent = CropImage.activity(photoURI).getIntent(getBaseContext());
+                        //setPic(currentBitmap,photoURI);
+                        startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
                     } catch (Exception e) {
                         Toast.makeText(getApplicationContext(), "Error loading picture", Toast.LENGTH_LONG).show();
                     }
                     break;
-                case  CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE:
+                case CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE: //cropping image
                     CropImage.ActivityResult result = CropImage.getActivityResult(data);
                     Uri resultUri = result.getUri();
-                    try{
+                    try {
+
                         Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), resultUri);
                         currentBitmap = bm;
-                        setPic(bm);
-                    }
-                    catch(Exception e)
-                    {
+                        setPic(bm, resultUri);
+                    } catch (Exception e) {
                         Toast.makeText(getApplicationContext(), "Error cropping picture", Toast.LENGTH_LONG).show();
                     }
                     break;
-
-
 
 
             }
@@ -219,24 +251,155 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /*----------------------------------------------------------------------------*/
-    private void setPic(Bitmap bm) {
+
+    /**
+     * This method asks the user to click on relevant location on screen.
+     * After that, saves the coordinates of that location.
+     */
+    private void getBlobCoordinates() {
+
+        final AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this)
+                .setMessage("Click on suspicions blob")
+                .setPositiveButton("GOT IT", null).show();
+
+        //setting a listener on imageview for sampling points
+        mImageView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+
+
+                //for sampling the point from not (not blob)
+                if (STATE == SAMPLE_SKIN) {
+                    skin = new Point();
+                    DecodeActionDownEvent(view, motionEvent, skin);
+                    try {
+                        mImageView.buildDrawingCache();
+                        Bitmap bitmap = mImageView.getDrawingCache();
+                        int pixel = bitmap.getPixel((int) skin.x, (int) skin.y);
+                        skinBgr = new int[]{Color.blue(pixel), Color.green(pixel), Color.red(pixel)};
+                        Log.i(TAG, "seed - r:" + seedBgr[2] + " ,g:" + seedBgr[1] + " b:" + seedBgr[0]);
+                        Log.i(TAG, "skin - r:" + skinBgr[2] + " ,g:" + skinBgr[1] + " b:" + skinBgr[0]);
+                        mImageView.setOnTouchListener(null);
+                        skinBgr = null;
+                        seedBgr = null;
+
+                        STATE = SAMPLE_BLOB;
+                        // drawPointsOnImage();
+                        //uncomment this section to process image
+                        MyAsyncTask work = new MyAsyncTask();
+                        calculatedBitmap = currentBitmap;
+                        work.execute(calculatedBitmap);
+                        ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
+                        b.setEnabled(false);
+                        return false;
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        //Toast.makeText(getBaseContext(), "Error while sampling colors", Toast.LENGTH_LONG).show();
+                    }
+
+                    return false;
+                }
+
+                //for sampling the point from suspicious blob
+                if (STATE == SAMPLE_BLOB) {
+                    seed = new Point();
+                    DecodeActionDownEvent(view, motionEvent, seed);
+                    try {
+                        mImageView.buildDrawingCache();
+                        Bitmap bitmap = mImageView.getDrawingCache();
+                        int pixel = bitmap.getPixel((int) seed.x, (int) seed.y);
+                        seedBgr = new int[]{Color.blue(pixel), Color.green(pixel), Color.red(pixel)};
+                        STATE = SAMPLE_SKIN;
+
+                        alertDialog.setMessage("Click on the skin");
+                        alertDialog.show();
+                        return false;
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        // Toast.makeText(getBaseContext(), "Error while sampling colors", Toast.LENGTH_LONG).show();
+                    }
+
+                }
+                return false;
+
+            }
+        });
+    }
+
+    /*-----------------------------------------------------------------------------------*/
+
+    /**
+     * Calculate coordinates relative to Imageview based on click location.
+     * After calculation, this method set the X,Y coordinates correspond to the given Point object.
+     *
+     * @param v  Current view.
+     * @param ev Relevant click event.
+     * @param p  A Point object that it's coordinates will update after calculation.
+     */
+    private void DecodeActionDownEvent(View v, MotionEvent ev, Point p) {
+        Matrix inverse = new Matrix();
+        mImageView.getImageMatrix().invert(inverse);
+        float[] touchPoint = new float[]{ev.getX(), ev.getY()};
+        // inverse.mapPoints(touchPoint);
+        p.x = touchPoint[0];
+        p.y = touchPoint[1];
+
+
+    }
+
+    /*------------------------------------------------------------------------------------------------------*/
+
+    /**
+     * This method draws the two clicked points by user.
+     * In red color it is the suspicious blob.
+     * In blue color it is the "clean" skin.
+     */
+    private void drawPointsOnImage() {
+
+        Bitmap bitmap;
+        bitmap = currentBitmap.copy(currentBitmap.getConfig(), true);
+        Canvas canvas = new Canvas(bitmap);
+        canvas.drawBitmap(bitmap, 0, 0, null);
+        Paint paint = new Paint();
+        paint.setColor(Color.RED);
+        paint.setStyle(Paint.Style.FILL_AND_STROKE);
+        canvas.drawCircle((float) seed.x, (float) seed.y, 20, paint);
+        paint.setColor(Color.BLUE);
+        canvas.drawCircle((float) skin.x, (float) skin.y, 20, paint);
+        mImageView.setImageDrawable(new BitmapDrawable(getBaseContext().getResources(), bitmap));
+    }
+
+    /*----------------------------------------------------------------------------*/
+
+    /**
+     * Setting picture using Glide library in the ImageView based on given Bitmap.
+     *
+     * @param bm        Given Bitmap to present.
+     * @param resultUri Given Uri of an image to present
+     */
+    private void setPic(Bitmap bm, Uri resultUri) {
+
         mImageView = (ImageView) findViewById(R.id.pic1);
-        mImageView.setImageBitmap(bm);
+        Glide
+                .with(getBaseContext())
+                .asBitmap().load(resultUri)
+
+                .into(mImageView);
+        // mImageView.setImageBitmap(bm);
+
+
         analyze_btn.setEnabled(true);
     }
 
 
     /*----------------------------------------------------------------------------*/
-    private void galleryAddPic() {
-        Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-        File f = new File(currentPhotoPath);
-        Uri contentUri = Uri.fromFile(f);
-        mediaScanIntent.setData(contentUri);
-        this.sendBroadcast(mediaScanIntent);
-    }
 
-
-    /*----------------------------------------------------------------------------*/
+    /**
+     * Firing new  intent for browsing images from device.
+     *
+     * @param v Provided view.
+     */
     public void onBrowseClick(View v) {
 
         Intent intent = new Intent();
@@ -248,21 +411,58 @@ public class MainActivity extends AppCompatActivity {
 
     public void onAnalyzeClick(View v) {
 
-        MyAsyncTask work = new MyAsyncTask();
-        calculatedBitmap = currentBitmap;
-        work.execute(calculatedBitmap);
-        Button b = (Button)findViewById(R.id.analyze_btn);
-        b.setEnabled(false);
+        getBlobCoordinates();
+
+
     }
     /*----------------------------------------------------------------------------*/
 
-    /*This class perform image processing*/
+    /**
+     * The MyAsyncTask class implements the AsyncTask class.
+     * It is used for a "heavy" image process
+     */
     private class MyAsyncTask extends AsyncTask<Bitmap, Void, Bitmap> {
 
 
         private Bitmap bm;
 
+        /*----------------------------------------------------------*/
+        private void FloodFill(Bitmap bmp, Point seed, int targetColor, int replacementColor) {
+            Queue<Point> q = new LinkedList<>();
+            q.add(seed);
+            while (q.size() > 0) {
+                Point n = q.poll();
+                if (bmp.getPixel((int) n.x, (int) n.y) != targetColor)
+                    continue;
+
+                Point w = n, e = new Point(n.x + 1, n.y);//right neighbor
+                while ((w.x > 0) && (bmp.getPixel((int) w.x, (int) w.y) == targetColor)) {
+                    bmp.setPixel((int) w.x, (int) w.y, replacementColor);
+                    if ((w.y > 0) && (bmp.getPixel((int) w.x, (int) w.y - 1) == targetColor))
+                        q.add(new Point(w.x, w.y - 1));
+                    if ((w.y < bmp.getHeight() - 1) && (bmp.getPixel((int) w.x, (int) w.y + 1) == targetColor))
+                        q.add(new Point(w.x, w.y + 1));
+                    w.x--;
+                }
+                while ((e.x < bmp.getWidth() - 1)
+                        && (bmp.getPixel((int) e.x, (int) e.y) == targetColor)) {
+                    bmp.setPixel((int) e.x, (int) e.y, replacementColor);
+
+                    if ((e.y > 0) && (bmp.getPixel((int) e.x, (int) e.y - 1) == targetColor))
+                        q.add(new Point(e.x, e.y - 1));
+                    if ((e.y < bmp.getHeight() - 1)
+                            && (bmp.getPixel((int) e.x, (int) e.y + 1) == targetColor))
+                        q.add(new Point(e.x, e.y + 1));
+                    e.x++;
+                }
+            }
+        }
+
         /*-----------------------------------------------------------*/
+
+        /**
+         * Set the view before image process.
+         */
         @Override
         protected void onPreExecute() {
             int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
@@ -280,6 +480,10 @@ public class MainActivity extends AppCompatActivity {
         }
         /*----------------------------------------------------------*/
 
+
+        /**
+         * After image process, this method stops the progress bar and present the processed image
+         */
         @Override
         protected void onPostExecute(Bitmap bitmap) {
 
@@ -295,64 +499,129 @@ public class MainActivity extends AppCompatActivity {
             View v = findViewById(R.id.my_layout);
             v.setAlpha(1f);
             calculatedBitmap = bitmap;
+            BitmapFactory.Options myOptions = new BitmapFactory.Options();
+            myOptions.inScaled = false;
+            myOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;// important
             mImageView.setImageBitmap(calculatedBitmap);
         }
 
-        /*----------------------------------------------------------*/
 
+        /*-----------------------------------------------------*/
+
+        /**
+         * This method perform image process
+         */
         @Override
         protected Bitmap doInBackground(Bitmap... bitmaps) {
-
 
             bm = bitmaps[0];
             Mat src = new Mat();
             Mat dest = new Mat();
-
-            Utils.bitmapToMat(bm, src);
-
-            Imgproc.cvtColor(src, dest, Imgproc.COLOR_BGR2GRAY);
-
-
-
-            //TODO: find a "smart" threshold and apply it
-
-            Scalar lower = new Scalar(160,140,140);
-            Scalar upper = new Scalar(230,200,200);
             Mat kernel = new Mat();
-
-          //  Core.inRange(dest,lower,upper,dest);
-
-         //  Imgproc.medianBlur(dest,dest,5);
-           /*Convert the image to black and white based on a threshold*/
-            Imgproc.threshold(dest,dest,0,255,Imgproc.THRESH_BINARY+Imgproc.THRESH_OTSU);
-            Imgproc.morphologyEx(dest,dest,Imgproc.MORPH_OPEN,kernel);
-
-
-
-
+            Utils.bitmapToMat(bm, src);
+            Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
+            Imgproc.threshold(src, dest, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
+            Imgproc.morphologyEx(dest, dest, Imgproc.MORPH_OPEN, kernel);
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
-           Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
-            /*Convert picture back to colors in order to see the red border surrounding the melanoma*/
-            Imgproc.cvtColor(dest, dest, Imgproc.COLOR_GRAY2RGB);
-            /*Painting red border around the melanoma based on the contour vector*/
-            Imgproc.drawContours(dest, contours, -1, new Scalar(255, 0, 0), 10);
-            /*Filling the inside of the contours in white color in order to get rid of "noises" */
-            Imgproc.drawContours(dest, contours, -1, new Scalar(255, 255, 255), -1);
-            Bitmap bm = Bitmap.createBitmap(dest.cols(), dest.rows(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(dest, bm);
+            Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_TC89_KCOS);
+            List<MatOfPoint> contoursClone = new ArrayList<>();
+            int scale = 0;
+            Mat cloneDest = dest.clone();
+            double area;
+            int num_of_contours = contours.size();
+            while (num_of_contours > 5 & scale <= 14) {
+                contours.clear();
+                contoursClone.clear();
+                scale++;
+                Imgproc.blur(dest, dest, new org.opencv.core.Size(scale, scale));
+                Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
+                for (int i = 0; i < contours.size(); i++) {
+
+                    area = Imgproc.contourArea(contours.get(i));
+                    if (area > 500)
+                        contoursClone.add(contours.get(i));
+
+                }
+
+
+                num_of_contours = contoursClone.size();
+            }
+
+
+            Imgproc.erode(cloneDest, cloneDest, new Mat(15, 15, CvType.CV_8U));
+            Imgproc.cvtColor(cloneDest, cloneDest, Imgproc.COLOR_GRAY2RGB);
+            Imgproc.drawContours(cloneDest, contoursClone, -1, new Scalar(255, 0, 0), 6);
+
+
+            Imgproc.drawContours(cloneDest, contoursClone, -1, new Scalar(255, 255, 255), -1);
+            List<Moments> mu = new ArrayList<>(contours.size());
+            for (int i = 0; i < contoursClone.size(); i++) {
+                mu.add(i, Imgproc.moments(contoursClone.get(i), false));
+                Moments p = mu.get(i);
+                int x = (int) (p.get_m10() / p.get_m00());
+                int y = (int) (p.get_m01() / p.get_m00());
+                Imgproc.circle(cloneDest, new Point(x, y), 10, new Scalar(0, 0, 255), 8);
+            }
+
+
+            Bitmap bm = Bitmap.createBitmap(cloneDest.cols(), cloneDest.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(cloneDest, bm);
             src.release();
             dest.release();
-            hierarchy.release();
-            kernel.release();
+            //  cloneDest.release();
+            //  hierarchy.release();
+            // kernel.release();
             return bm;
         }
       /*----------------------------------------------------------*/
 
     }
 
-    public void onHistogramClicked(View v)
-    {
+    private Vector<Integer> avarageColorChannel(Point seed, int flag) {
+        Bitmap bm = currentBitmap;
+        Vector<Integer> vector = new Vector<>();
+        int pixelUp = bm.getPixel((int) seed.x, (int) seed.y - 1);
+        int pixelDown = bm.getPixel((int) seed.x, (int) seed.y + 1);
+        int pixelLeft = bm.getPixel((int) seed.x - 1, (int) seed.y);
+        int pixelRight = bm.getPixel((int) seed.x + 1, (int) seed.y);
+        if (flag == 1) {
+            vector.add(Color.red(pixelUp));
+            vector.add(Color.red(pixelDown));
+            vector.add(Color.red(pixelLeft));
+            vector.add(Color.red(pixelRight));
+            vector.add(Color.red(bm.getPixel((int) seed.x, (int) seed.y)));
+
+        }
+        if (flag == 2) {
+            vector.add(Color.blue(pixelUp));
+            vector.add(Color.blue(pixelDown));
+            vector.add(Color.blue(pixelLeft));
+            vector.add(Color.blue(pixelRight));
+            vector.add(Color.blue(bm.getPixel((int) seed.x, (int) seed.y)));
+
+        }
+        if (flag == 3) {
+            vector.add(Color.green(pixelUp));
+            vector.add(Color.green(pixelDown));
+            vector.add(Color.green(pixelLeft));
+            vector.add(Color.green(pixelRight));
+            vector.add(Color.green(bm.getPixel((int) seed.x, (int) seed.y)));
+
+        }
+
+        return vector;
+    }
+
+    private int avarageValue(Vector<Integer> vector) {
+        int sum = 0;
+        for (int val : vector) {
+            sum += val;
+        }
+        return sum / vector.size();
+    }
+
+    public void onHistogramClicked(View v) {
         Mat src = new Mat();
         Mat dest = new Mat();
 
@@ -390,22 +659,20 @@ public class MainActivity extends AppCompatActivity {
         Bitmap bm = Bitmap.createBitmap(histMatBitmap.cols(), histMatBitmap.rows(), Bitmap.Config.ARGB_8888);
         Utils.matToBitmap(histMatBitmap, bm);
         mImageView.setImageBitmap(bm);
-        Button b = (Button)findViewById(R.id.analyze_btn);
+        ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
         b.setEnabled(true);
         src.release();
         dest.release();
         histogramSize.release();
         histMatBitmap.release();
 
-        for (MatOfInt mat:channels)
-        {
+        for (MatOfInt mat : channels) {
             mat.release();
         }
-        for (Mat mat:histograms)
-        {
+        for (Mat mat : histograms) {
             mat.release();
         }
-        
+
 
     }
 }

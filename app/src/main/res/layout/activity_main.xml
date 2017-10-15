@@ -1,89 +1,161 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<android.widget.RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/my_layout"
     android:layoutDirection="ltr"
+    android:background="#BCB49F"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="omri.opencvdemo.MainActivity">
 
     <ImageView
         android:id="@+id/pic1"
-        android:layout_width="340dp"
-        android:layout_height="340dp"
-        android:layout_marginLeft="8dp"
-        android:layout_marginRight="8dp"
-        android:contentDescription=""
+        android:layout_width="337dp"
+        android:layout_height="344dp"
+        android:layout_marginBottom="32dp"
+        android:layout_marginEnd="15dp"
+        android:layout_marginLeft="15dp"
+        android:layout_marginRight="15dp"
+        android:layout_marginStart="15dp"
+        android:layout_marginTop="8dp"
+
+        android:contentDescription="@string/presenting_images"
+        android:scaleType="fitCenter"
+        android:src="@drawable/picure_icon"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintHorizontal_bias="0.529"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.796"
-        app:srcCompat="@mipmap/ic_launcher"
-        tools:ignore="ContentDescription"
-        tools:layout_editor_absoluteY="101dp"
-        android:layout_alignParentBottom="true"
-        android:layout_centerHorizontal="true" />
+        app:layout_constraintVertical_bias="1.0"
+        tools:layout_constraintBottom_creator="1"
+        tools:layout_constraintLeft_creator="1"
+        tools:layout_constraintRight_creator="1" />
+
 
     <ProgressBar
         android:id="@+id/progressbar_loading"
         style="?android:attr/progressBarStyleLarge"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerHorizontal="true"
-        android:layout_centerInParent="true"
-        android:layout_centerVertical="true"
-        android:layout_marginBottom="8dp"
-        android:visibility="gone" />
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"
+        tools:layout_constraintTop_creator="1"
+        tools:layout_constraintRight_creator="1"
+        tools:layout_constraintBottom_creator="1"
 
-    <Button
-        android:id="@+id/camera_btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        tools:layout_constraintLeft_creator="1"
+
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintLeft_toLeftOf="@+id/pic1"
+        app:layout_constraintRight_toRightOf="@+id/pic1"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+
+    <ImageButton
+        android:id="@+id/imageButton"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:layout_marginEnd="18dp"
+        android:layout_marginStart="15dp"
+        android:adjustViewBounds="true"
+        android:background="@drawable/rounded_corners"
+        android:contentDescription="@string/launching_camera"
+        android:cropToPadding="true"
+        android:elevation="14dp"
         android:onClick="launchCamera"
-        android:text="@string/take_photo"
+        android:scaleType="fitXY"
+        android:src="@drawable/camera_icon"
+        app:layout_constraintHorizontal_bias="0.454"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toLeftOf="@+id/browse_btn"
         app:layout_constraintTop_toTopOf="parent"
-        tools:layout_editor_absoluteX="25dp"
-        android:layout_alignParentTop="true"
-        android:layout_alignStart="@+id/pic1" />
+        app:layout_constraintVertical_bias="0.206"
+        tools:layout_constraintBottom_creator="1"
+        tools:layout_constraintLeft_creator="1"
+        tools:layout_constraintRight_creator="1"
+        tools:layout_constraintTop_creator="1"
+        android:layout_marginBottom="8dp"
+        app:layout_constraintBottom_toTopOf="@+id/pic1"
 
-    <Button
+        android:layout_marginTop="8dp" />
+
+
+    <ImageButton
         android:id="@+id/browse_btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignBaseline="@+id/analyze_btn"
-        android:layout_alignBottom="@+id/analyze_btn"
-        android:layout_marginEnd="24dp"
-        android:layout_toStartOf="@+id/analyze_btn"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:layout_marginBottom="8dp"
+        android:layout_marginStart="113dp"
+        android:adjustViewBounds="true"
+        android:contentDescription="@string/browsing_gallery"
+        android:cropToPadding="false"
+        android:elevation="14dp"
         android:onClick="onBrowseClick"
-        android:text="@string/browse"
+        android:scaleType="fitXY"
+        android:src="@drawable/gallery_icon"
+        android:background="@drawable/rounded_corners"
+        app:layout_constraintBottom_toTopOf="@+id/pic1"
         app:layout_constraintTop_toTopOf="parent"
-        tools:layout_editor_absoluteX="157dp" />
+        app:layout_constraintVertical_bias="0.212"
+        tools:layout_constraintBottom_creator="1"
+        tools:layout_constraintLeft_creator="1"
+        tools:layout_constraintTop_creator="1"
+        android:layout_marginTop="8dp"
+        app:layout_constraintLeft_toLeftOf="parent" />
 
-    <Button
+
+    <ImageButton
         android:id="@+id/analyze_btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignBaseline="@+id/camera_btn"
-        android:layout_alignBottom="@+id/camera_btn"
-        android:layout_alignEnd="@+id/pic1"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:contentDescription="@string/image_proccess"
+        android:elevation="14dp"
         android:onClick="onAnalyzeClick"
-        android:text="@string/analyze"
+        android:scaleType="fitXY"
+        android:src="@drawable/analyze_icon"
+        android:background="@drawable/rounded_corners"
         app:layout_constraintTop_toTopOf="parent"
-        tools:layout_editor_absoluteX="262dp" />
+        tools:layout_constraintRight_creator="1"
+        android:layout_marginStart="101dp"
+        android:layout_marginEnd="101dp"
+        app:layout_constraintRight_toRightOf="@+id/pic1"
+        tools:layout_constraintLeft_creator="1"
+        app:layout_constraintLeft_toLeftOf="@+id/browse_btn"
+        android:layout_marginTop="8dp"
+        app:layout_constraintHorizontal_bias="0.536"
+        android:layout_marginBottom="8dp"
+        app:layout_constraintBottom_toTopOf="@+id/pic1"
+        app:layout_constraintVertical_bias="0.223" />
 
-    <Button
+
+    <ImageButton
         android:id="@+id/hostogram_btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:layout_marginBottom="8dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginStart="21dp"
+        android:layout_marginTop="8dp"
+        android:adjustViewBounds="true"
+        android:background="@drawable/rounded_corners"
+        android:contentDescription="@string/calculating_histogram"
+        android:cropToPadding="false"
+        android:elevation="14dp"
         android:onClick="onHistogramClicked"
-        android:text="@string/show_histogram"
-        android:layout_below="@+id/camera_btn"
-        android:layout_alignStart="@+id/camera_btn"
-        android:layout_marginTop="11dp" />
+        android:scaleType="fitXY"
+        android:src="@drawable/histogram_icon"
+        app:layout_constraintBottom_toTopOf="@+id/pic1"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintLeft_toRightOf="@+id/analyze_btn"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.223"
+        tools:layout_constraintBottom_creator="1"
+        tools:layout_constraintLeft_creator="1"
+        tools:layout_constraintRight_creator="1"
+        tools:layout_constraintTop_creator="1" />
 
 
-</android.widget.RelativeLayout>
+</android.support.constraint.ConstraintLayout>
