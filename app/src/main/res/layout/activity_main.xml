@@ -22,7 +22,7 @@
         android:layout_marginTop="8dp"
 
         android:contentDescription="@string/presenting_images"
-        android:scaleType="fitXY"
+        android:scaleType="fitCenter"
         android:src="@drawable/picure_icon"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintHorizontal_bias="0.529"
