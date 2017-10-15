@@ -142,8 +142,9 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Returns a unique file for an image.
+     *
      * @return the created file for saving an image.
-     * @throws IOException
+     * @throws IOException in case of failure in file allocation
      */
     private File createImageFile() throws IOException {
         // Create an image file name
@@ -166,12 +167,12 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Creates an image capture intent, launching camera and after taking picture,
      * stores the image on internal storage.
+     *
      * @param v current view.
      */
     public void launchCamera(View v) {
 
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-
         // Ensure that there's a camera activity to handle the intent
         if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
             // Create the File where the photo should go
@@ -195,10 +196,11 @@ public class MainActivity extends AppCompatActivity {
 
      /*----------------------------------------------------------------------------*/
 
-    @Override
+
     /**
      * For handling different intents
      */
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 
         super.onActivityResult(requestCode, resultCode, data);
@@ -224,6 +226,7 @@ public class MainActivity extends AppCompatActivity {
                     try {
                         photoURI = data.getData();
                         Intent intent = CropImage.activity(photoURI).getIntent(getBaseContext());
+                        //setPic(currentBitmap,photoURI);
                         startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
                     } catch (Exception e) {
                         Toast.makeText(getApplicationContext(), "Error loading picture", Toast.LENGTH_LONG).show();
@@ -237,8 +240,6 @@ public class MainActivity extends AppCompatActivity {
                         Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), resultUri);
                         currentBitmap = bm;
                         setPic(bm, resultUri);
-
-
                     } catch (Exception e) {
                         Toast.makeText(getApplicationContext(), "Error cropping picture", Toast.LENGTH_LONG).show();
                     }
@@ -266,30 +267,35 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean onTouch(View view, MotionEvent motionEvent) {
 
-                mImageView.buildDrawingCache();
-                Bitmap bitmap = mImageView.getDrawingCache();
+
                 //for sampling the point from not (not blob)
                 if (STATE == SAMPLE_SKIN) {
                     skin = new Point();
                     DecodeActionDownEvent(view, motionEvent, skin);
                     try {
+                        mImageView.buildDrawingCache();
+                        Bitmap bitmap = mImageView.getDrawingCache();
                         int pixel = bitmap.getPixel((int) skin.x, (int) skin.y);
                         skinBgr = new int[]{Color.blue(pixel), Color.green(pixel), Color.red(pixel)};
                         Log.i(TAG, "seed - r:" + seedBgr[2] + " ,g:" + seedBgr[1] + " b:" + seedBgr[0]);
                         Log.i(TAG, "skin - r:" + skinBgr[2] + " ,g:" + skinBgr[1] + " b:" + skinBgr[0]);
                         mImageView.setOnTouchListener(null);
+                        skinBgr = null;
+                        seedBgr = null;
+
                         STATE = SAMPLE_BLOB;
-                        drawPointsOnImage();
+                        // drawPointsOnImage();
                         //uncomment this section to process image
-                  /*   MyAsyncTask work = new MyAsyncTask();
-                    calculatedBitmap = currentBitmap;
-                    work.execute(calculatedBitmap);
-                    ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
-                    b.setEnabled(false);*/
+                        MyAsyncTask work = new MyAsyncTask();
+                        calculatedBitmap = currentBitmap;
+                        work.execute(calculatedBitmap);
+                        ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
+                        b.setEnabled(false);
                         return false;
 
                     } catch (Exception e) {
-                        Toast.makeText(getBaseContext(), "Error while sampling colors", Toast.LENGTH_LONG).show();
+                        e.printStackTrace();
+                        //Toast.makeText(getBaseContext(), "Error while sampling colors", Toast.LENGTH_LONG).show();
                     }
 
                     return false;
@@ -300,6 +306,8 @@ public class MainActivity extends AppCompatActivity {
                     seed = new Point();
                     DecodeActionDownEvent(view, motionEvent, seed);
                     try {
+                        mImageView.buildDrawingCache();
+                        Bitmap bitmap = mImageView.getDrawingCache();
                         int pixel = bitmap.getPixel((int) seed.x, (int) seed.y);
                         seedBgr = new int[]{Color.blue(pixel), Color.green(pixel), Color.red(pixel)};
                         STATE = SAMPLE_SKIN;
@@ -308,7 +316,8 @@ public class MainActivity extends AppCompatActivity {
                         alertDialog.show();
                         return false;
                     } catch (Exception e) {
-                        Toast.makeText(getBaseContext(), "Error while sampling colors", Toast.LENGTH_LONG).show();
+                        e.printStackTrace();
+                        // Toast.makeText(getBaseContext(), "Error while sampling colors", Toast.LENGTH_LONG).show();
                     }
 
                 }
@@ -332,9 +341,10 @@ public class MainActivity extends AppCompatActivity {
         Matrix inverse = new Matrix();
         mImageView.getImageMatrix().invert(inverse);
         float[] touchPoint = new float[]{ev.getX(), ev.getY()};
-        inverse.mapPoints(touchPoint);
-        p.x =  touchPoint[0];
-        p.y =  touchPoint[1];
+        // inverse.mapPoints(touchPoint);
+        p.x = touchPoint[0];
+        p.y = touchPoint[1];
+
 
     }
 
@@ -356,7 +366,7 @@ public class MainActivity extends AppCompatActivity {
         paint.setStyle(Paint.Style.FILL_AND_STROKE);
         canvas.drawCircle((float) seed.x, (float) seed.y, 20, paint);
         paint.setColor(Color.BLUE);
-        canvas.drawCircle((float) skin.x - mImageView.getLeft(), (float) skin.y - mImageView.getTop(), 20, paint);
+        canvas.drawCircle((float) skin.x, (float) skin.y, 20, paint);
         mImageView.setImageDrawable(new BitmapDrawable(getBaseContext().getResources(), bitmap));
     }
 
@@ -372,8 +382,11 @@ public class MainActivity extends AppCompatActivity {
 
         mImageView = (ImageView) findViewById(R.id.pic1);
         Glide
-                .with(this)
-                .asBitmap().load(resultUri).into(mImageView);
+                .with(getBaseContext())
+                .asBitmap().load(resultUri)
+
+                .into(mImageView);
+        // mImageView.setImageBitmap(bm);
 
 
         analyze_btn.setEnabled(true);
@@ -414,21 +427,20 @@ public class MainActivity extends AppCompatActivity {
         private Bitmap bm;
 
         /*----------------------------------------------------------*/
-        private void FloodFill(Bitmap bmp, Point pt, int targetColor, int replacementColor) {
-            Queue<Point> q = new LinkedList<Point>();
-            q.add(pt);
+        private void FloodFill(Bitmap bmp, Point seed, int targetColor, int replacementColor) {
+            Queue<Point> q = new LinkedList<>();
+            q.add(seed);
             while (q.size() > 0) {
                 Point n = q.poll();
                 if (bmp.getPixel((int) n.x, (int) n.y) != targetColor)
                     continue;
 
-                Point w = n, e = new Point(n.x + 1, n.y);
+                Point w = n, e = new Point(n.x + 1, n.y);//right neighbor
                 while ((w.x > 0) && (bmp.getPixel((int) w.x, (int) w.y) == targetColor)) {
                     bmp.setPixel((int) w.x, (int) w.y, replacementColor);
                     if ((w.y > 0) && (bmp.getPixel((int) w.x, (int) w.y - 1) == targetColor))
                         q.add(new Point(w.x, w.y - 1));
-                    if ((w.y < bmp.getHeight() - 1)
-                            && (bmp.getPixel((int) w.x, (int) w.y + 1) == targetColor))
+                    if ((w.y < bmp.getHeight() - 1) && (bmp.getPixel((int) w.x, (int) w.y + 1) == targetColor))
                         q.add(new Point(w.x, w.y + 1));
                     w.x--;
                 }
@@ -448,11 +460,10 @@ public class MainActivity extends AppCompatActivity {
 
         /*-----------------------------------------------------------*/
 
-
-        @Override
         /**
-         * Present on screen a progress bar before image process.
+         * Set the view before image process.
          */
+        @Override
         protected void onPreExecute() {
             int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
             View v = findViewById(R.id.my_layout);
@@ -469,10 +480,11 @@ public class MainActivity extends AppCompatActivity {
         }
         /*----------------------------------------------------------*/
 
-        @Override
+
         /**
          * After image process, this method stops the progress bar and present the processed image
          */
+        @Override
         protected void onPostExecute(Bitmap bitmap) {
 
             pb.setVisibility(View.INVISIBLE);
@@ -495,74 +507,20 @@ public class MainActivity extends AppCompatActivity {
 
 
         /*-----------------------------------------------------*/
-        @Override
+
         /**
          * This method perform image process
          */
+        @Override
         protected Bitmap doInBackground(Bitmap... bitmaps) {
 
             bm = bitmaps[0];
-
             Mat src = new Mat();
-            Utils.bitmapToMat(bm, src);
-            Imgproc.cvtColor(src, src, Imgproc.COLOR_RGB2BGR);
-
             Mat dest = new Mat();
-
-            Mat floodfilled = Mat.zeros(src.rows() + 2, src.cols() + 2, CvType.CV_8UC1);
-
-            Imgproc.floodFill(src, floodfilled, new Point(300, 300), new Scalar(0, 0, 255));
-          /*  Core.subtract(floodfilled, Scalar.all(0), floodfilled);
-            Rect roi = new Rect(1, 1, src.cols() - 2, src.rows() - 2);
-            Mat temp = new Mat();
-            floodfilled.submat(roi).copyTo(temp);*/
-
-
-            //  Bitmap resultBitmap = Bitmap.createBitmap(bm, 0, 0, bm.getWidth() - 1, bm.getHeight() - 1);
-            // Utils.bitmapToMat(resultBitmap, src);
-          /*  Mat mask = new Mat(dest.cols()+2,dest.rows()+2,CvType.CV_8UC1);
-            Color blob = new Color();
-            int pixel = bm.getPixel((int)seed.x,(int)seed.y);
-            Vector<Integer> redChannel =  new Vector<>();
-            redChannel=  avarageColorChannel(seed,1);
-            Vector<Integer> blueChannel = new Vector<>();
-            blueChannel=     avarageColorChannel(seed,2);
-            Vector<Integer> greenChannel =  new Vector<>();
-            greenChannel=  avarageColorChannel(seed,3);
-
-            int avarageRed = avarageValue(redChannel);
-            int avarageBlue = avarageValue(blueChannel);
-            int avaragegreen = avarageValue(greenChannel);
-
-            int redValue = Color.red(pixel);
-            int blueValue = Color.blue(pixel);
-            int greenValue = Color.green(pixel);
-
-            int redValueSkin = 164;
-            int blueValueSkin = 126;
-            int greenValueSkin = 134;*/
-
-            //Log.i(TAG, "doInBackground: red: "+ redValue+" , blue: "+ blueValue+" , green: "+greenValue);
-
-            // Imgproc.floodFill(src,mask,seed,new Scalar(255,255,255),null,)
-
-
-            // Imgproc.cvtColor(src, dest, Imgproc.Co);
-         /*   int pixel = resultBitmap.getPixel((int) seed.x, (int) seed.y);
-
-            int blueValue = Color.blue(pixel);
-            int greenValue = Color.green(pixel);
-            int redValue = Color.red(pixel);
-            Mat mask = new Mat(src.rows() + 2, src.cols() + 2, CvType.CV_8UC1);
-            Scalar lower = new Scalar(blueValue - 20, greenValue - 20, redValue - 20);
-            Scalar upper = new Scalar(blueValue + 20, greenValue + 20, redValue + 20);
-
-            Imgproc.floodFill(src, mask, seed, new Scalar(0, 0, 0), new Rect(), lower, upper, FLOODFILL_MASK_ONLY);*/
-
-         /*   Utils.bitmapToMat(bm, src);
-            Imgproc.cvtColor(src, dest, Imgproc.COLOR_BGR2GRAY);
             Mat kernel = new Mat();
-            Imgproc.threshold(dest, dest, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
+            Utils.bitmapToMat(bm, src);
+            Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
+            Imgproc.threshold(src, dest, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
             Imgproc.morphologyEx(dest, dest, Imgproc.MORPH_OPEN, kernel);
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
@@ -596,7 +554,6 @@ public class MainActivity extends AppCompatActivity {
             Imgproc.drawContours(cloneDest, contoursClone, -1, new Scalar(255, 0, 0), 6);
 
 
-            double minimalRadius = 0;
             Imgproc.drawContours(cloneDest, contoursClone, -1, new Scalar(255, 255, 255), -1);
             List<Moments> mu = new ArrayList<>(contours.size());
             for (int i = 0; i < contoursClone.size(); i++) {
@@ -607,9 +564,9 @@ public class MainActivity extends AppCompatActivity {
                 Imgproc.circle(cloneDest, new Point(x, y), 10, new Scalar(0, 0, 255), 8);
             }
 
-*/
-            Bitmap bm = Bitmap.createBitmap(floodfilled.cols(), floodfilled.rows(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(floodfilled, bm);
+
+            Bitmap bm = Bitmap.createBitmap(cloneDest.cols(), cloneDest.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(cloneDest, bm);
             src.release();
             dest.release();
             //  cloneDest.release();
