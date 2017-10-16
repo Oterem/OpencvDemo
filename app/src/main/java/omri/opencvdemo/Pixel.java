@@ -1,6 +1,8 @@
 package omri.opencvdemo;
 
 
+import android.graphics.Bitmap;
+
 import org.opencv.core.Point;
 
 public class Pixel {
@@ -13,9 +15,10 @@ public class Pixel {
 public Pixel(Point p)
 {
     this.coordinate = new Point(p.x,p.y);
+
 }
 
-  
+
     public int getRedChannel() {
         return redChannel;
     }
@@ -47,4 +50,5 @@ public Pixel(Point p)
     public void setBlueChannel(int blueChannel) {
         this.blueChannel = blueChannel;
     }
+
 }
