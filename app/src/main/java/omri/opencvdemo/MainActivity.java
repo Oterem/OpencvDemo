@@ -438,7 +438,7 @@ public class MainActivity extends AppCompatActivity {
                 Point w = n, e = new Point(n.x + 1, n.y);//right neighbor
                 while ((w.x > 0) && (bmp.getPixel((int) w.x, (int) w.y) == targetColor)) {
                     bmp.setPixel((int) w.x, (int) w.y, replacementColor);
-                    if ((w.y > 0) && (bmp.getPixel((int) w.x, (int) w.y - 1) == targetColor))
+                    if ((w.y > 0) && (bmp.getPixel((int) w.x, (int) w.y - 1) == targetColor))//up
                         q.add(new Point(w.x, w.y - 1));
                     if ((w.y < bmp.getHeight() - 1) && (bmp.getPixel((int) w.x, (int) w.y + 1) == targetColor))
                         q.add(new Point(w.x, w.y + 1));
@@ -579,6 +579,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Vector<Integer> avarageColorChannel(Point seed, int flag) {
+
+
         Bitmap bm = currentBitmap;
         Vector<Integer> vector = new Vector<>();
         int pixelUp = bm.getPixel((int) seed.x, (int) seed.y - 1);
