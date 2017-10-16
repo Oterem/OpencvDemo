@@ -1,6 +1,9 @@
 package omri.opencvdemo;
 
 import android.graphics.Bitmap;
+import android.graphics.PixelFormat;
+
+import java.awt.*;
 
 import org.opencv.core.Point;
 
@@ -16,11 +19,17 @@ public  class PixelCalc {
 
     private static int[][] fetchNeighborsRGB(Point seed,Bitmap bitmap,int[] pRGB, int[][] allRGB)
     {
-        allRGB[0] = pRGB;
-        int pixelNorth,pixelSouth
+        allRGB[5] = pRGB;
+
+        int pixelNorth,pixelSouth,southPixel,eastPixel,LUPixel, RUPixel,LDPixel,RDPixel;
+
 
 
     }
 
-    private static boolean checkBoundaries(point)
+    private static boolean checkBoundaries(Point seed, Bitmap bitmap)
+    {
+
+        return true;
+    }
 }
