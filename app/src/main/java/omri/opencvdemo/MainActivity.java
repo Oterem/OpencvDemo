@@ -84,6 +84,7 @@ public class MainActivity extends AppCompatActivity {
     private Point seed, skin;
     private double[] seedRGB, skinRGB,seedAvgColor,skinAvgColor;
     private double threshold;
+    private static int SCALING_DIVIDER =2;
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -273,7 +274,7 @@ public class MainActivity extends AppCompatActivity {
                         Log.i(TAG, "avgSeed - r:" + (int)seedAvgColor[0] + " ,g:" + (int)seedAvgColor[1] + " b:" + (int)seedAvgColor[2]);
                         Log.i(TAG, "avgSkin - r:" + (int)skinAvgColor[0] + " ,g:" + (int)skinAvgColor[1] + " b:" + (int)skinAvgColor[2]);
 
-                        threshold = PixelCalc.calcDistance(seedAvgColor,skinAvgColor)/4;
+                        threshold = PixelCalc.calcDistance(seedAvgColor,skinAvgColor)/SCALING_DIVIDER;
                         Log.i(TAG,"Threshold is: "+threshold);
                         ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
                         b.setEnabled(false);
