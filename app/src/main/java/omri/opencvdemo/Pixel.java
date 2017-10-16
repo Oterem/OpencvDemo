@@ -1,28 +1,21 @@
 package omri.opencvdemo;
 
 
+import org.opencv.core.Point;
+
 public class Pixel {
 
-    private int x;
-    private int y;
+    private Point coordinate;
     private int redChannel;
     private int greenChannel;
     private int blueChannel;
 
-    public Pixel(int x,int y)
-    {
-        this.x = x;
-        this.y=y;
-    }
+public Pixel(Point p)
+{
+    this.coordinate = new Point(p.x,p.y);
+}
 
-    public int getX() {
-        return x;
-    }
-
-    public int getY() {
-        return y;
-    }
-
+  
     public int getRedChannel() {
         return redChannel;
     }
@@ -36,11 +29,11 @@ public class Pixel {
     }
 
     public void setX(int x) {
-        this.x = x;
+        this.coordinate.x = x;
     }
 
     public void setY(int y) {
-        this.y = y;
+        this.coordinate.y = y;
     }
 
     public void setRedChannel(int redChannel) {
