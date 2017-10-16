@@ -84,11 +84,12 @@ public abstract class PixelCalc {
     public static double calcDistance(Point a, Point b,Bitmap bitmap)
     {
 
-        int pixelA = bitmap.getPixel((int) a.x, (int) b.y);
+        int pixelA = bitmap.getPixel((int) a.x, (int) a.y);
         int pixelB = bitmap.getPixel((int) b.x, (int) b.y);
         double[] aChannels= {Color.red(pixelA),Color.green(pixelA),Color.blue(pixelA)};
         double[] bChannels= {Color.red(pixelB),Color.green(pixelB),Color.blue(pixelB)};
-        return calcDistance(aChannels,bChannels);
+        double res= calcDistance(aChannels,bChannels);
+        return res;
 
     }
 
