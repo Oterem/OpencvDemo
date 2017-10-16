@@ -82,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
     private Uri photoURI;
     private ProgressBar pb;
     private Point seed, skin;
-    private int[] seedRGB, skinRGB;
+    private double[] seedRGB, skinRGB,seedAvgColor,skinAvgColor;
     private double threshold;
 
 
@@ -257,7 +257,7 @@ public class MainActivity extends AppCompatActivity {
                         mImageView.buildDrawingCache();
                         Bitmap bitmap = mImageView.getDrawingCache();
                         int pixel = bitmap.getPixel((int) skin.x, (int) skin.y);
-                        skinRGB = new int[]{Color.red(pixel),Color.green(pixel),Color.blue(pixel)};
+                        skinRGB = new double[]{Color.red(pixel),Color.green(pixel),Color.blue(pixel)};
                         Log.i(TAG, "seed - r:" + seedRGB[2] + " ,g:" + seedRGB[1] + " b:" + seedRGB[0]);
                         Log.i(TAG, "skin - r:" + skinRGB[2] + " ,g:" + skinRGB[1] + " b:" + skinRGB[0]);
                         mImageView.setOnTouchListener(null);
@@ -267,9 +267,8 @@ public class MainActivity extends AppCompatActivity {
                         STATE = SAMPLE_BLOB;
                         // drawPointsOnImage();
 
-                        double[] seedAvgColor;
+
                         seedAvgColor = PixelCalc.avgSurround(seed,bitmap);
-                        double[] skinAvgColor;
                         skinAvgColor = PixelCalc.avgSurround(skin,bitmap);
                         Log.i(TAG, "avgSeed - r:" + (int)seedAvgColor[0] + " ,g:" + (int)seedAvgColor[1] + " b:" + (int)seedAvgColor[2]);
                         Log.i(TAG, "avgSkin - r:" + (int)skinAvgColor[0] + " ,g:" + (int)skinAvgColor[1] + " b:" + (int)skinAvgColor[2]);
@@ -301,7 +300,7 @@ public class MainActivity extends AppCompatActivity {
                         mImageView.buildDrawingCache();
                         Bitmap bitmap = mImageView.getDrawingCache();
                         int pixel = bitmap.getPixel((int) seed.x, (int) seed.y);
-                        seedRGB = new int[]{ Color.red(pixel), Color.green(pixel),Color.blue(pixel)};
+                        seedRGB = new double[]{ Color.red(pixel), Color.green(pixel),Color.blue(pixel)};
                         STATE = SAMPLE_SKIN;
 
                         alertDialog.setMessage("Click on the skin");
@@ -423,28 +422,30 @@ public class MainActivity extends AppCompatActivity {
         /*----------------------------------------------------------*/
         private void FloodFill(Bitmap bmp, Point seed, int threshold, int replacementColor) {
 
+            int x =(int) seed.x;
+            int y =(int) seed.y;
             Queue<Point> q = new LinkedList<>();
             q.add(seed);
             while (q.size() > 0) {
                 Point n = q.poll();//n is the head of list
-                if (PixelCalc.calcDistance(seed,n,bmp)>threshold)//in case pixel does not belong
+                if (PixelCalc.calcDistance(seedAvgColor,n,bmp)>threshold)//in case pixel does not belong
                     continue;
 
                 Point e = new Point(n.x + 1, n.y);//right neighbor
-                while ((n.x > 0) && (PixelCalc.calcDistance(seed,n,bmp) <= threshold)) {
+                while ((n.x > 0) && (PixelCalc.calcDistance(seedAvgColor,n,bmp) <= threshold)) {
                     bmp.setPixel((int) n.x, (int) n.y, replacementColor);
-                    if ((n.y > 0) && (PixelCalc.calcDistance(new Point(n.x,n.y-1),seed,bmp) <= threshold))//up
+                    if ((n.y > 0) && (PixelCalc.calcDistance(seedAvgColor,new Point(n.x,n.y-1),bmp) <= threshold))//up
                         q.add(new Point(n.x, n.y - 1));
-                    if ((n.y < bmp.getHeight() - 1) && (PixelCalc.calcDistance(seed,new Point(n.x,n.y+1),bmp) <= threshold))
+                    if ((n.y < bmp.getHeight() - 1) && (PixelCalc.calcDistance(seedAvgColor,new Point(n.x,n.y+1),bmp) <= threshold))
                         q.add(new Point(n.x, n.y + 1));
                     n.x--;
                 }
-                while ((e.x < bmp.getWidth() - 1) && (PixelCalc.calcDistance(seed,new Point(e.x,e.y),bmp) <= threshold)) {
+                while ((e.x < bmp.getWidth() - 1) && (PixelCalc.calcDistance(seedAvgColor,new Point(e.x,e.y),bmp) <= threshold)) {
                     bmp.setPixel((int) e.x, (int) e.y, replacementColor);
 
-                    if ((e.y > 0) && (PixelCalc.calcDistance(seed,new Point(e.x,e.y-1),bmp) <= threshold))
+                    if ((e.y > 0) && (PixelCalc.calcDistance(seedAvgColor,new Point(e.x,e.y-1),bmp) <= threshold))
                         q.add(new Point(e.x, e.y - 1));
-                    if ((e.y < bmp.getHeight() - 1) && (PixelCalc.calcDistance(seed,new Point(e.x,e.y+1),bmp) <= threshold))
+                    if ((e.y < bmp.getHeight() - 1) && (PixelCalc.calcDistance(seedAvgColor,new Point(e.x,e.y+1),bmp) <= threshold))
                         q.add(new Point(e.x, e.y + 1));
                     e.x++;
                 }
