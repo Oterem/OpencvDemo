@@ -1,11 +1,12 @@
 package omri.opencvdemo;
 
-
+import java.io.*;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 
 import android.content.Intent;
 
+import android.database.Cursor;
 import android.graphics.Bitmap;
 
 import android.graphics.BitmapFactory;
@@ -87,6 +88,7 @@ public class MainActivity extends AppCompatActivity {
     private double[] seedRGB, skinRGB,seedAvgColor,skinAvgColor;
     private double threshold;
     private static int SCALING_DIVIDER =2;
+    private String imageName ="";
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -180,7 +182,15 @@ public class MainActivity extends AppCompatActivity {
 
      /*----------------------------------------------------------------------------*/
 
-
+    public String getRealPathFromURI(Uri uri) {
+        String[] projection = { MediaStore.Images.Media.DATA };
+        @SuppressWarnings("deprecation")
+        Cursor cursor = managedQuery(uri, projection, null, null, null);
+        int column_index = cursor
+                .getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+        cursor.moveToFirst();
+        return cursor.getString(column_index);
+    }
     /**
      * For handling different intents
      */
@@ -209,6 +219,9 @@ public class MainActivity extends AppCompatActivity {
                 case ACTION_GET_CONTENT: //in case user is loading picture from gallery
                     try {
                         photoURI = data.getData();
+
+                        imageName = getRealPathFromURI(photoURI);
+                        imageName = imageName.replaceFirst(".*/(\\w+).*","$1");
                         Intent intent = CropImage.activity(photoURI).getIntent(getBaseContext());
                         //setPic(currentBitmap,photoURI);
                         startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
@@ -526,12 +539,16 @@ public class MainActivity extends AppCompatActivity {
             View v = findViewById(R.id.my_layout);
             v.setAlpha(1f);
             calculatedBitmap = bitmap;
+            File pictureFile = null;
             BitmapFactory.Options myOptions = new BitmapFactory.Options();
             myOptions.inScaled = false;
             myOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;// important
             mImageView.setImageBitmap(calculatedBitmap);
+            try{
+                pictureFile = createImageFile();
+            }
+            catch (Exception e){}
 
-            File pictureFile = getOutputMediaFile();
             if (pictureFile == null) {
                 Log.d(TAG,
                         "Error creating media file, check storage permissions: ");// e.getMessage());
@@ -567,6 +584,7 @@ public class MainActivity extends AppCompatActivity {
             Utils.bitmapToMat(flooded,src);
             Imgproc.cvtColor(src,src,Imgproc.COLOR_BGR2GRAY);
             Imgproc.threshold(src,src,254,254,Imgproc.THRESH_BINARY);
+
 
 
            /* Utils.bitmapToMat(bm, src);
@@ -615,12 +633,13 @@ public class MainActivity extends AppCompatActivity {
 
             Bitmap bm = Bitmap.createBitmap(cloneDest.cols(), cloneDest.rows(), Bitmap.Config.ARGB_8888);
             Utils.matToBitmap(cloneDest, bm);*/
-
+            Bitmap bm = Bitmap.createBitmap(src.cols(), src.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(src, bm);
             src.release();
             dest.release();
             //  cloneDest.release();
             //  hierarchy.release();
-            return flooded;
+            return bm;
         }
       /*----------------------------------------------------------*/
 
