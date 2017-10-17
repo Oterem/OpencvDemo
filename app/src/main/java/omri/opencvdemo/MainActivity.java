@@ -540,7 +540,7 @@ public class MainActivity extends AppCompatActivity {
             try {
                 FileOutputStream fos = new FileOutputStream(pictureFile);
 
-                bm.compress(Bitmap.CompressFormat.PNG, 90, fos);
+                calculatedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
                 fos.close();
             } catch (FileNotFoundException e) {
                 Log.d(TAG, "File not found: " + e.getMessage());
