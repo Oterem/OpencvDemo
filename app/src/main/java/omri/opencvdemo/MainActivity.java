@@ -514,7 +514,6 @@ public class MainActivity extends AppCompatActivity {
             flooded = bitmaps[1];
             Mat src = new Mat();
             Mat dest = new Mat();
-            Mat kernel = new Mat();
             int red = android.graphics.Color.rgb(255, 255, 255);
             FloodFill(flooded,seed,(int)threshold,red);
             Utils.bitmapToMat(flooded,src);
@@ -571,7 +570,6 @@ public class MainActivity extends AppCompatActivity {
             dest.release();
             //  cloneDest.release();
             //  hierarchy.release();
-            // kernel.release();
             return flooded;
         }
       /*----------------------------------------------------------*/
