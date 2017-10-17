@@ -53,6 +53,8 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.android.OpenCVLoader;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 
 import java.text.SimpleDateFormat;
@@ -420,6 +422,35 @@ public class MainActivity extends AppCompatActivity {
         private Bitmap bm;
         private Bitmap flooded;
 
+        private  File getOutputMediaFile(){
+            // To be safe, you should check that the SDCard is mounted
+            // using Environment.getExternalStorageState() before doing this.
+            File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
+                    + "/Android/data/"
+                    + getApplicationContext().getPackageName()
+                    + "/Files");
+
+            Log.i(TAG,""+Environment.getExternalStorageDirectory()
+                    + "/Android/data/"
+                    + getApplicationContext().getPackageName()
+                    + "/Files");
+
+            // This location works best if you want the created images to be shared
+            // between applications and persist after your app has been uninstalled.
+
+            // Create the storage directory if it does not exist
+            if (! mediaStorageDir.exists()){
+                if (! mediaStorageDir.mkdirs()){
+                    return null;
+                }
+            }
+            // Create a media file name
+            String timeStamp = new SimpleDateFormat("ddMMyyyy_HHmm").format(new Date());
+            File mediaFile;
+            String mImageName="MI_"+ timeStamp +".jpg";
+            mediaFile = new File(mediaStorageDir.getPath() + File.separator + mImageName);
+            return mediaFile;
+        }
         /*----------------------------------------------------------*/
         private void FloodFill(Bitmap bmp, Point seed, int threshold, int replacementColor) {
 
@@ -499,6 +530,23 @@ public class MainActivity extends AppCompatActivity {
             myOptions.inScaled = false;
             myOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;// important
             mImageView.setImageBitmap(calculatedBitmap);
+
+            File pictureFile = getOutputMediaFile();
+            if (pictureFile == null) {
+                Log.d(TAG,
+                        "Error creating media file, check storage permissions: ");// e.getMessage());
+                return;
+            }
+            try {
+                FileOutputStream fos = new FileOutputStream(pictureFile);
+
+                bm.compress(Bitmap.CompressFormat.PNG, 90, fos);
+                fos.close();
+            } catch (FileNotFoundException e) {
+                Log.d(TAG, "File not found: " + e.getMessage());
+            } catch (IOException e) {
+                Log.d(TAG, "Error accessing file: " + e.getMessage());
+            }
         }
 
 
@@ -519,6 +567,8 @@ public class MainActivity extends AppCompatActivity {
             Utils.bitmapToMat(flooded,src);
             Imgproc.cvtColor(src,src,Imgproc.COLOR_BGR2GRAY);
             Imgproc.threshold(src,src,254,254,Imgproc.THRESH_BINARY);
+
+
            /* Utils.bitmapToMat(bm, src);
             Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
             Imgproc.threshold(src, dest, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
