@@ -4,10 +4,6 @@ package omri.opencvdemo;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 
-import com.bumptech.glide.annotation.GlideModule;
-import com.bumptech.glide.module.AppGlideModule;
-
-import android.content.DialogInterface;
 import android.content.Intent;
 
 import android.graphics.Bitmap;
@@ -33,7 +29,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
@@ -44,46 +39,31 @@ import org.opencv.android.Utils;
 
 import org.opencv.core.Core;
 
-import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
 
-import org.opencv.core.MatOfPoint;
-import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
-import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 
 
-import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.imgproc.Moments;
-import org.opencv.photo.Photo;
 import org.opencv.android.OpenCVLoader;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 
-import java.lang.reflect.Array;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Locale;
 import java.util.Queue;
-import java.util.Vector;
 
 import com.bumptech.glide.Glide;
 import com.theartofdev.edmodo.cropper.CropImage;
-
-import static org.opencv.imgproc.Imgproc.COLOR_BGR2GRAY;
-import static org.opencv.imgproc.Imgproc.FLOODFILL_MASK_ONLY;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -93,7 +73,6 @@ public class MainActivity extends AppCompatActivity {
     private ImageButton browse_btn, camera_btn, analyze_btn, histogram_btn;
     private static final String TAG = "MainActivity";
     private String currentPhotoPath, currentGalleryPath;
-    private String current_open_image_path;
     private static final int ACTION_IMAGE_CAPTURE = 1;
     private static final int ACTION_GET_CONTENT = 2;
     private static final int REQUEST_CAMERA = 100;
@@ -103,7 +82,9 @@ public class MainActivity extends AppCompatActivity {
     private Uri photoURI;
     private ProgressBar pb;
     private Point seed, skin;
-    private int[] seedBgr, skinBgr;
+    private double[] seedRGB, skinRGB,seedAvgColor,skinAvgColor;
+    private double threshold;
+    private static int SCALING_DIVIDER =2;
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -129,6 +110,7 @@ public class MainActivity extends AppCompatActivity {
         analyze_btn.setEnabled(false);
         histogram_btn = (ImageButton) findViewById(R.id.hostogram_btn);
         histogram_btn.setEnabled(false);
+
 
         //handling permissions in case of SDK >=23
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -276,21 +258,31 @@ public class MainActivity extends AppCompatActivity {
                         mImageView.buildDrawingCache();
                         Bitmap bitmap = mImageView.getDrawingCache();
                         int pixel = bitmap.getPixel((int) skin.x, (int) skin.y);
-                        skinBgr = new int[]{Color.blue(pixel), Color.green(pixel), Color.red(pixel)};
-                        Log.i(TAG, "seed - r:" + seedBgr[2] + " ,g:" + seedBgr[1] + " b:" + seedBgr[0]);
-                        Log.i(TAG, "skin - r:" + skinBgr[2] + " ,g:" + skinBgr[1] + " b:" + skinBgr[0]);
+                        skinRGB = new double[]{Color.red(pixel),Color.green(pixel),Color.blue(pixel)};
+                        Log.i(TAG, "seed - r:" + seedRGB[2] + " ,g:" + seedRGB[1] + " b:" + seedRGB[0]);
+                        Log.i(TAG, "skin - r:" + skinRGB[2] + " ,g:" + skinRGB[1] + " b:" + skinRGB[0]);
                         mImageView.setOnTouchListener(null);
-                        skinBgr = null;
-                        seedBgr = null;
+                        skinRGB = null;
+                        seedRGB = null;
 
                         STATE = SAMPLE_BLOB;
                         // drawPointsOnImage();
+
+
+                        seedAvgColor = PixelCalc.avgSurround(seed,bitmap);
+                        skinAvgColor = PixelCalc.avgSurround(skin,bitmap);
+                        Log.i(TAG, "avgSeed - r:" + (int)seedAvgColor[0] + " ,g:" + (int)seedAvgColor[1] + " b:" + (int)seedAvgColor[2]);
+                        Log.i(TAG, "avgSkin - r:" + (int)skinAvgColor[0] + " ,g:" + (int)skinAvgColor[1] + " b:" + (int)skinAvgColor[2]);
+
+                        threshold = PixelCalc.calcDistance(seedAvgColor,skinAvgColor)/SCALING_DIVIDER;
+                        Log.i(TAG,"Threshold is: "+threshold);
+                        ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
+                        b.setEnabled(false);
                         //uncomment this section to process image
                         MyAsyncTask work = new MyAsyncTask();
                         calculatedBitmap = currentBitmap;
-                        work.execute(calculatedBitmap);
-                        ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
-                        b.setEnabled(false);
+                        Bitmap[] array = {calculatedBitmap,bitmap};
+                        work.execute(array);
                         return false;
 
                     } catch (Exception e) {
@@ -309,7 +301,7 @@ public class MainActivity extends AppCompatActivity {
                         mImageView.buildDrawingCache();
                         Bitmap bitmap = mImageView.getDrawingCache();
                         int pixel = bitmap.getPixel((int) seed.x, (int) seed.y);
-                        seedBgr = new int[]{Color.blue(pixel), Color.green(pixel), Color.red(pixel)};
+                        seedRGB = new double[]{ Color.red(pixel), Color.green(pixel),Color.blue(pixel)};
                         STATE = SAMPLE_SKIN;
 
                         alertDialog.setMessage("Click on the skin");
@@ -414,6 +406,7 @@ public class MainActivity extends AppCompatActivity {
         getBlobCoordinates();
 
 
+
     }
     /*----------------------------------------------------------------------------*/
 
@@ -425,38 +418,41 @@ public class MainActivity extends AppCompatActivity {
 
 
         private Bitmap bm;
+        private Bitmap flooded;
 
         /*----------------------------------------------------------*/
-        private void FloodFill(Bitmap bmp, Point seed, int targetColor, int replacementColor) {
+        private void FloodFill(Bitmap bmp, Point seed, int threshold, int replacementColor) {
+
+            int x =(int) seed.x;
+            int y =(int) seed.y;
             Queue<Point> q = new LinkedList<>();
             q.add(seed);
             while (q.size() > 0) {
-                Point n = q.poll();
-                if (bmp.getPixel((int) n.x, (int) n.y) != targetColor)
+                Point n = q.poll();//n is the head of list
+                if (PixelCalc.calcDistance(seedAvgColor,n,bmp)>threshold)//in case pixel does not belong
                     continue;
 
-                Point w = n, e = new Point(n.x + 1, n.y);//right neighbor
-                while ((w.x > 0) && (bmp.getPixel((int) w.x, (int) w.y) == targetColor)) {
-                    bmp.setPixel((int) w.x, (int) w.y, replacementColor);
-                    if ((w.y > 0) && (bmp.getPixel((int) w.x, (int) w.y - 1) == targetColor))
-                        q.add(new Point(w.x, w.y - 1));
-                    if ((w.y < bmp.getHeight() - 1) && (bmp.getPixel((int) w.x, (int) w.y + 1) == targetColor))
-                        q.add(new Point(w.x, w.y + 1));
-                    w.x--;
+                Point e = new Point(n.x + 1, n.y);//right neighbor
+                while ((n.x > 0) && (PixelCalc.calcDistance(seedAvgColor,n,bmp) <= threshold)) {
+                    bmp.setPixel((int) n.x, (int) n.y, replacementColor);
+                    if ((n.y > 0) && (PixelCalc.calcDistance(seedAvgColor,new Point(n.x,n.y-1),bmp) <= threshold))//up
+                        q.add(new Point(n.x, n.y - 1));
+                    if ((n.y < bmp.getHeight() - 1) && (PixelCalc.calcDistance(seedAvgColor,new Point(n.x,n.y+1),bmp) <= threshold))
+                        q.add(new Point(n.x, n.y + 1));
+                    n.x--;
                 }
-                while ((e.x < bmp.getWidth() - 1)
-                        && (bmp.getPixel((int) e.x, (int) e.y) == targetColor)) {
+                while ((e.x < bmp.getWidth() - 1) && (PixelCalc.calcDistance(seedAvgColor,new Point(e.x,e.y),bmp) <= threshold)) {
                     bmp.setPixel((int) e.x, (int) e.y, replacementColor);
 
-                    if ((e.y > 0) && (bmp.getPixel((int) e.x, (int) e.y - 1) == targetColor))
+                    if ((e.y > 0) && (PixelCalc.calcDistance(seedAvgColor,new Point(e.x,e.y-1),bmp) <= threshold))
                         q.add(new Point(e.x, e.y - 1));
-                    if ((e.y < bmp.getHeight() - 1)
-                            && (bmp.getPixel((int) e.x, (int) e.y + 1) == targetColor))
+                    if ((e.y < bmp.getHeight() - 1) && (PixelCalc.calcDistance(seedAvgColor,new Point(e.x,e.y+1),bmp) <= threshold))
                         q.add(new Point(e.x, e.y + 1));
                     e.x++;
                 }
             }
         }
+
 
         /*-----------------------------------------------------------*/
 
@@ -515,10 +511,15 @@ public class MainActivity extends AppCompatActivity {
         protected Bitmap doInBackground(Bitmap... bitmaps) {
 
             bm = bitmaps[0];
+            flooded = bitmaps[1];
             Mat src = new Mat();
             Mat dest = new Mat();
-            Mat kernel = new Mat();
-            Utils.bitmapToMat(bm, src);
+            int red = android.graphics.Color.rgb(255, 255, 255);
+            FloodFill(flooded,seed,(int)threshold,red);
+            Utils.bitmapToMat(flooded,src);
+            Imgproc.cvtColor(src,src,Imgproc.COLOR_BGR2GRAY);
+            Imgproc.threshold(src,src,254,254,Imgproc.THRESH_BINARY);
+           /* Utils.bitmapToMat(bm, src);
             Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
             Imgproc.threshold(src, dest, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
             Imgproc.morphologyEx(dest, dest, Imgproc.MORPH_OPEN, kernel);
@@ -548,12 +549,9 @@ public class MainActivity extends AppCompatActivity {
                 num_of_contours = contoursClone.size();
             }
 
-
             Imgproc.erode(cloneDest, cloneDest, new Mat(15, 15, CvType.CV_8U));
             Imgproc.cvtColor(cloneDest, cloneDest, Imgproc.COLOR_GRAY2RGB);
             Imgproc.drawContours(cloneDest, contoursClone, -1, new Scalar(255, 0, 0), 6);
-
-
             Imgproc.drawContours(cloneDest, contoursClone, -1, new Scalar(255, 255, 255), -1);
             List<Moments> mu = new ArrayList<>(contours.size());
             for (int i = 0; i < contoursClone.size(); i++) {
@@ -566,60 +564,18 @@ public class MainActivity extends AppCompatActivity {
 
 
             Bitmap bm = Bitmap.createBitmap(cloneDest.cols(), cloneDest.rows(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(cloneDest, bm);
+            Utils.matToBitmap(cloneDest, bm);*/
+
             src.release();
             dest.release();
             //  cloneDest.release();
             //  hierarchy.release();
-            // kernel.release();
-            return bm;
+            return flooded;
         }
       /*----------------------------------------------------------*/
 
     }
 
-    private Vector<Integer> avarageColorChannel(Point seed, int flag) {
-        Bitmap bm = currentBitmap;
-        Vector<Integer> vector = new Vector<>();
-        int pixelUp = bm.getPixel((int) seed.x, (int) seed.y - 1);
-        int pixelDown = bm.getPixel((int) seed.x, (int) seed.y + 1);
-        int pixelLeft = bm.getPixel((int) seed.x - 1, (int) seed.y);
-        int pixelRight = bm.getPixel((int) seed.x + 1, (int) seed.y);
-        if (flag == 1) {
-            vector.add(Color.red(pixelUp));
-            vector.add(Color.red(pixelDown));
-            vector.add(Color.red(pixelLeft));
-            vector.add(Color.red(pixelRight));
-            vector.add(Color.red(bm.getPixel((int) seed.x, (int) seed.y)));
-
-        }
-        if (flag == 2) {
-            vector.add(Color.blue(pixelUp));
-            vector.add(Color.blue(pixelDown));
-            vector.add(Color.blue(pixelLeft));
-            vector.add(Color.blue(pixelRight));
-            vector.add(Color.blue(bm.getPixel((int) seed.x, (int) seed.y)));
-
-        }
-        if (flag == 3) {
-            vector.add(Color.green(pixelUp));
-            vector.add(Color.green(pixelDown));
-            vector.add(Color.green(pixelLeft));
-            vector.add(Color.green(pixelRight));
-            vector.add(Color.green(bm.getPixel((int) seed.x, (int) seed.y)));
-
-        }
-
-        return vector;
-    }
-
-    private int avarageValue(Vector<Integer> vector) {
-        int sum = 0;
-        for (int val : vector) {
-            sum += val;
-        }
-        return sum / vector.size();
-    }
 
     public void onHistogramClicked(View v) {
         Mat src = new Mat();
