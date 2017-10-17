@@ -223,8 +223,8 @@ public class MainActivity extends AppCompatActivity {
                         imageName = getRealPathFromURI(photoURI);
                         imageName = imageName.replaceFirst(".*/(\\w+).*","$1");
                         Intent intent = CropImage.activity(photoURI).getIntent(getBaseContext());
-                        //setPic(currentBitmap,photoURI);
-                        startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
+                        setPic(currentBitmap,photoURI);
+                       // startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
                     } catch (Exception e) {
                         Toast.makeText(getApplicationContext(), "Error loading picture", Toast.LENGTH_LONG).show();
                     }
