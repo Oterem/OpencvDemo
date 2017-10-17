@@ -39,6 +39,7 @@ import org.opencv.android.Utils;
 
 import org.opencv.core.Core;
 
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import org.opencv.core.MatOfFloat;
@@ -49,6 +50,7 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 
 
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.android.OpenCVLoader;
 
@@ -85,6 +87,7 @@ public class MainActivity extends AppCompatActivity {
     private double[] seedRGB, skinRGB,seedAvgColor,skinAvgColor;
     private double threshold;
     private static int SCALING_DIVIDER =2;
+
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -494,11 +497,14 @@ public class MainActivity extends AppCompatActivity {
             });
             View v = findViewById(R.id.my_layout);
             v.setAlpha(1f);
-            calculatedBitmap = bitmap;
+
+            Bitmap bm ;
+            bm = bitmap;
+            /*calculatedBitmap = bitmap;
             BitmapFactory.Options myOptions = new BitmapFactory.Options();
             myOptions.inScaled = false;
-            myOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;// important
-            mImageView.setImageBitmap(calculatedBitmap);
+            myOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;// important*/
+            mImageView.setImageBitmap(bm);
         }
 
 
@@ -512,11 +518,14 @@ public class MainActivity extends AppCompatActivity {
 
             bm = bitmaps[0];
             flooded = bitmaps[1];
-            Mat src = new Mat();
+            Mat src = new Mat(flooded.getHeight(),flooded.getWidth(),CvType.CV_8UC3);
             Mat dest = new Mat();
-            Mat kernel = new Mat();
-            int red = android.graphics.Color.rgb(255, 255, 255);
-            FloodFill(flooded,seed,(int)threshold,red);
+            int white = android.graphics.Color.rgb(255, 255, 255);//this color will paint he blob
+            FloodFill(flooded,seed,(int)threshold,white);
+            Utils.bitmapToMat(flooded,src);
+            Imgproc.cvtColor(src,src,Imgproc.COLOR_BGR2GRAY);
+            Imgproc.threshold(src,src,254,254,Imgproc.THRESH_BINARY);
+
            /* Utils.bitmapToMat(bm, src);
             Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
             Imgproc.threshold(src, dest, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
@@ -563,13 +572,15 @@ public class MainActivity extends AppCompatActivity {
 
             Bitmap bm = Bitmap.createBitmap(cloneDest.cols(), cloneDest.rows(), Bitmap.Config.ARGB_8888);
             Utils.matToBitmap(cloneDest, bm);*/
+            Bitmap bm = Bitmap.createBitmap(src.cols(), src.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(src, bm);
 
             src.release();
             dest.release();
-            //  cloneDest.release();
-            //  hierarchy.release();
-            // kernel.release();
-            return flooded;
+              //cloneDest.release();
+              //hierarchy.release();
+
+            return bm;
         }
       /*----------------------------------------------------------*/
 
