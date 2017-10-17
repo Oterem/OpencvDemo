@@ -517,6 +517,9 @@ public class MainActivity extends AppCompatActivity {
             Mat kernel = new Mat();
             int red = android.graphics.Color.rgb(255, 255, 255);
             FloodFill(flooded,seed,(int)threshold,red);
+            Utils.bitmapToMat(flooded,src);
+            Imgproc.cvtColor(src,src,Imgproc.COLOR_BGR2GRAY);
+            Imgproc.threshold(src,src,254,254,Imgproc.THRESH_BINARY);
            /* Utils.bitmapToMat(bm, src);
             Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
             Imgproc.threshold(src, dest, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
