@@ -461,7 +461,7 @@ public class MainActivity extends AppCompatActivity {
             String timeStamp = new SimpleDateFormat("ddMMyyyy_HHmm").format(new Date());
             File mediaFile;
             String mImageName="MI_"+ timeStamp +".jpg";
-            mediaFile = new File(mediaStorageDir.getPath() + File.separator + mImageName);
+            mediaFile = new File(mediaStorageDir.getPath() + File.separator + imageName + "_seg.jpg");
             return mediaFile;
         }
         /*----------------------------------------------------------*/
@@ -545,7 +545,8 @@ public class MainActivity extends AppCompatActivity {
             myOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;// important
             mImageView.setImageBitmap(calculatedBitmap);
             try{
-                pictureFile = createImageFile();
+                //pictureFile = createImageFile();
+                pictureFile = getOutputMediaFile();
             }
             catch (Exception e){}
 
@@ -584,7 +585,7 @@ public class MainActivity extends AppCompatActivity {
             Utils.bitmapToMat(flooded,src);
             Imgproc.cvtColor(src,src,Imgproc.COLOR_BGR2GRAY);
             Imgproc.threshold(src,src,254,254,Imgproc.THRESH_BINARY);
-
+            Utils.matToBitmap(src,flooded);
 
 
            /* Utils.bitmapToMat(bm, src);
