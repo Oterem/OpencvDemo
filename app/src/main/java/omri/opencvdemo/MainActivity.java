@@ -538,7 +538,10 @@ public class MainActivity extends AppCompatActivity {
             });
             View v = findViewById(R.id.my_layout);
             v.setAlpha(1f);
-            calculatedBitmap = bitmap;
+            calculatedBitmap = Bitmap.createBitmap(bitmap);//aliasing
+            mImageView.destroyDrawingCache();
+
+            //---------- image saving-----------
             File pictureFile = null;
             BitmapFactory.Options myOptions = new BitmapFactory.Options();
             myOptions.inScaled = false;
