@@ -129,6 +129,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+
     /*----------------------------------------------------------------------------*/
 
     /**
@@ -427,6 +428,8 @@ public class MainActivity extends AppCompatActivity {
         getBlobCoordinates();
 
 
+
+
     }
     /*----------------------------------------------------------------------------*/
 
@@ -552,7 +555,9 @@ public class MainActivity extends AppCompatActivity {
             BitmapFactory.Options myOptions = new BitmapFactory.Options();
             myOptions.inScaled = false;
             myOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;// important
-            mImageView.setImageBitmap(calculatedBitmap);
+            mImageView.setMaxHeight(bitmap.getHeight());
+            mImageView.setMaxWidth(bitmap.getWidth());
+            mImageView.setImageBitmap(bitmap);
             try {
                 //pictureFile = createImageFile();
                 pictureFile = getOutputMediaFile();
@@ -597,8 +602,8 @@ public class MainActivity extends AppCompatActivity {
             //Utils.matToBitmap(src, flooded);
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
-            Imgproc.findContours(src, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
-           Log.i(TAG,"num of contours: "+contours.size());
+            Imgproc.findContours(src, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+            Log.i(TAG,"num of contours: "+contours.size());
             //Imgproc.dilate(src,src,new Mat(15, 15, CvType.CV_8U));
             int index=0;
             double area=0;
@@ -613,6 +618,11 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             Imgproc.drawContours(src,contours,index,new Scalar(255,255,255),-1);
+            for (int i=0;i<contours.size();i++)
+            {
+                if(i!=index)
+                    Imgproc.drawContours(src,contours,i,new Scalar(0,0,0),-1);
+            }
 
 
            /* Utils.bitmapToMat(bm, src);
