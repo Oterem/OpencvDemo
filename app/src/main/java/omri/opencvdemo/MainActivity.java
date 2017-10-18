@@ -1,6 +1,7 @@
 package omri.opencvdemo;
 
 import java.io.*;
+
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 
@@ -40,11 +41,13 @@ import org.opencv.android.Utils;
 
 import org.opencv.core.Core;
 
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
 
+import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
@@ -59,9 +62,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Queue;
 
@@ -85,10 +90,10 @@ public class MainActivity extends AppCompatActivity {
     private Uri photoURI;
     private ProgressBar pb;
     private Point seed, skin;
-    private double[] seedRGB, skinRGB,seedAvgColor,skinAvgColor;
+    private double[] seedRGB, skinRGB, seedAvgColor, skinAvgColor;
     private double threshold;
-    private static int SCALING_DIVIDER =2;
-    private String imageName ="";
+    private static int SCALING_DIVIDER = 2;
+    private String imageName = "";
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -183,7 +188,7 @@ public class MainActivity extends AppCompatActivity {
      /*----------------------------------------------------------------------------*/
 
     public String getRealPathFromURI(Uri uri) {
-        String[] projection = { MediaStore.Images.Media.DATA };
+        String[] projection = {MediaStore.Images.Media.DATA};
         @SuppressWarnings("deprecation")
         Cursor cursor = managedQuery(uri, projection, null, null, null);
         int column_index = cursor
@@ -191,6 +196,7 @@ public class MainActivity extends AppCompatActivity {
         cursor.moveToFirst();
         return cursor.getString(column_index);
     }
+
     /**
      * For handling different intents
      */
@@ -221,10 +227,10 @@ public class MainActivity extends AppCompatActivity {
                         photoURI = data.getData();
 
                         imageName = getRealPathFromURI(photoURI);
-                        imageName = imageName.replaceFirst(".*/(\\w+).*","$1");
+                        imageName = imageName.replaceFirst(".*/(\\w+).*", "$1");
                         Intent intent = CropImage.activity(photoURI).getIntent(getBaseContext());
-                        setPic(currentBitmap,photoURI);
-                       // startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
+                        setPic(currentBitmap, photoURI);
+                        //startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
                     } catch (Exception e) {
                         Toast.makeText(getApplicationContext(), "Error loading picture", Toast.LENGTH_LONG).show();
                     }
@@ -273,7 +279,7 @@ public class MainActivity extends AppCompatActivity {
                         mImageView.buildDrawingCache();
                         Bitmap bitmap = mImageView.getDrawingCache();
                         int pixel = bitmap.getPixel((int) skin.x, (int) skin.y);
-                        skinRGB = new double[]{Color.red(pixel),Color.green(pixel),Color.blue(pixel)};
+                        skinRGB = new double[]{Color.red(pixel), Color.green(pixel), Color.blue(pixel)};
                         Log.i(TAG, "seed - r:" + seedRGB[2] + " ,g:" + seedRGB[1] + " b:" + seedRGB[0]);
                         Log.i(TAG, "skin - r:" + skinRGB[2] + " ,g:" + skinRGB[1] + " b:" + skinRGB[0]);
                         mImageView.setOnTouchListener(null);
@@ -284,19 +290,19 @@ public class MainActivity extends AppCompatActivity {
                         // drawPointsOnImage();
 
 
-                        seedAvgColor = PixelCalc.avgSurround(seed,bitmap);
-                        skinAvgColor = PixelCalc.avgSurround(skin,bitmap);
-                        Log.i(TAG, "avgSeed - r:" + (int)seedAvgColor[0] + " ,g:" + (int)seedAvgColor[1] + " b:" + (int)seedAvgColor[2]);
-                        Log.i(TAG, "avgSkin - r:" + (int)skinAvgColor[0] + " ,g:" + (int)skinAvgColor[1] + " b:" + (int)skinAvgColor[2]);
+                        seedAvgColor = PixelCalc.avgSurround(seed, bitmap);
+                        skinAvgColor = PixelCalc.avgSurround(skin, bitmap);
+                        Log.i(TAG, "avgSeed - r:" + (int) seedAvgColor[0] + " ,g:" + (int) seedAvgColor[1] + " b:" + (int) seedAvgColor[2]);
+                        Log.i(TAG, "avgSkin - r:" + (int) skinAvgColor[0] + " ,g:" + (int) skinAvgColor[1] + " b:" + (int) skinAvgColor[2]);
 
-                        threshold = PixelCalc.calcDistance(seedAvgColor,skinAvgColor)/SCALING_DIVIDER;
-                        Log.i(TAG,"Threshold is: "+threshold);
+                        threshold = PixelCalc.calcDistance(seedAvgColor, skinAvgColor) / SCALING_DIVIDER;
+                        Log.i(TAG, "Threshold is: " + threshold);
                         ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
                         b.setEnabled(false);
                         //uncomment this section to process image
                         MyAsyncTask work = new MyAsyncTask();
                         calculatedBitmap = currentBitmap;
-                        Bitmap[] array = {calculatedBitmap,bitmap};
+                        Bitmap[] array = {calculatedBitmap, bitmap};
                         work.execute(array);
                         return false;
 
@@ -316,7 +322,7 @@ public class MainActivity extends AppCompatActivity {
                         mImageView.buildDrawingCache();
                         Bitmap bitmap = mImageView.getDrawingCache();
                         int pixel = bitmap.getPixel((int) seed.x, (int) seed.y);
-                        seedRGB = new double[]{ Color.red(pixel), Color.green(pixel),Color.blue(pixel)};
+                        seedRGB = new double[]{Color.red(pixel), Color.green(pixel), Color.blue(pixel)};
                         STATE = SAMPLE_SKIN;
 
                         alertDialog.setMessage("Click on the skin");
@@ -421,7 +427,6 @@ public class MainActivity extends AppCompatActivity {
         getBlobCoordinates();
 
 
-
     }
     /*----------------------------------------------------------------------------*/
 
@@ -435,7 +440,7 @@ public class MainActivity extends AppCompatActivity {
         private Bitmap bm;
         private Bitmap flooded;
 
-        private  File getOutputMediaFile(){
+        private File getOutputMediaFile() {
             // To be safe, you should check that the SDCard is mounted
             // using Environment.getExternalStorageState() before doing this.
             File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
@@ -443,7 +448,7 @@ public class MainActivity extends AppCompatActivity {
                     + getApplicationContext().getPackageName()
                     + "/Files");
 
-            Log.i(TAG,""+Environment.getExternalStorageDirectory()
+            Log.i(TAG, "" + Environment.getExternalStorageDirectory()
                     + "/Android/data/"
                     + getApplicationContext().getPackageName()
                     + "/Files");
@@ -452,45 +457,46 @@ public class MainActivity extends AppCompatActivity {
             // between applications and persist after your app has been uninstalled.
 
             // Create the storage directory if it does not exist
-            if (! mediaStorageDir.exists()){
-                if (! mediaStorageDir.mkdirs()){
+            if (!mediaStorageDir.exists()) {
+                if (!mediaStorageDir.mkdirs()) {
                     return null;
                 }
             }
             // Create a media file name
             String timeStamp = new SimpleDateFormat("ddMMyyyy_HHmm").format(new Date());
             File mediaFile;
-            String mImageName="MI_"+ timeStamp +".jpg";
+            String mImageName = "MI_" + timeStamp + ".jpg";
             mediaFile = new File(mediaStorageDir.getPath() + File.separator + imageName + "_seg.jpg");
             return mediaFile;
         }
+
         /*----------------------------------------------------------*/
         private void FloodFill(Bitmap bmp, Point seed, int threshold, int replacementColor) {
 
-            int x =(int) seed.x;
-            int y =(int) seed.y;
+            int x = (int) seed.x;
+            int y = (int) seed.y;
             Queue<Point> q = new LinkedList<>();
             q.add(seed);
             while (q.size() > 0) {
                 Point n = q.poll();//n is the head of list
-                if (PixelCalc.calcDistance(seedAvgColor,n,bmp)>threshold)//in case pixel does not belong
+                if (PixelCalc.calcDistance(seedAvgColor, n, bmp) > threshold)//in case pixel does not belong
                     continue;
 
                 Point e = new Point(n.x + 1, n.y);//right neighbor
-                while ((n.x > 0) && (PixelCalc.calcDistance(seedAvgColor,n,bmp) <= threshold)) {
+                while ((n.x > 0) && (PixelCalc.calcDistance(seedAvgColor, n, bmp) <= threshold)) {
                     bmp.setPixel((int) n.x, (int) n.y, replacementColor);
-                    if ((n.y > 0) && (PixelCalc.calcDistance(seedAvgColor,new Point(n.x,n.y-1),bmp) <= threshold))//up
+                    if ((n.y > 0) && (PixelCalc.calcDistance(seedAvgColor, new Point(n.x, n.y - 1), bmp) <= threshold))//up
                         q.add(new Point(n.x, n.y - 1));
-                    if ((n.y < bmp.getHeight() - 1) && (PixelCalc.calcDistance(seedAvgColor,new Point(n.x,n.y+1),bmp) <= threshold))
+                    if ((n.y < bmp.getHeight() - 1) && (PixelCalc.calcDistance(seedAvgColor, new Point(n.x, n.y + 1), bmp) <= threshold))
                         q.add(new Point(n.x, n.y + 1));
                     n.x--;
                 }
-                while ((e.x < bmp.getWidth() - 1) && (PixelCalc.calcDistance(seedAvgColor,new Point(e.x,e.y),bmp) <= threshold)) {
+                while ((e.x < bmp.getWidth() - 1) && (PixelCalc.calcDistance(seedAvgColor, new Point(e.x, e.y), bmp) <= threshold)) {
                     bmp.setPixel((int) e.x, (int) e.y, replacementColor);
 
-                    if ((e.y > 0) && (PixelCalc.calcDistance(seedAvgColor,new Point(e.x,e.y-1),bmp) <= threshold))
+                    if ((e.y > 0) && (PixelCalc.calcDistance(seedAvgColor, new Point(e.x, e.y - 1), bmp) <= threshold))
                         q.add(new Point(e.x, e.y - 1));
-                    if ((e.y < bmp.getHeight() - 1) && (PixelCalc.calcDistance(seedAvgColor,new Point(e.x,e.y+1),bmp) <= threshold))
+                    if ((e.y < bmp.getHeight() - 1) && (PixelCalc.calcDistance(seedAvgColor, new Point(e.x, e.y + 1), bmp) <= threshold))
                         q.add(new Point(e.x, e.y + 1));
                     e.x++;
                 }
@@ -547,11 +553,11 @@ public class MainActivity extends AppCompatActivity {
             myOptions.inScaled = false;
             myOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;// important
             mImageView.setImageBitmap(calculatedBitmap);
-            try{
+            try {
                 //pictureFile = createImageFile();
                 pictureFile = getOutputMediaFile();
+            } catch (Exception e) {
             }
-            catch (Exception e){}
 
             if (pictureFile == null) {
                 Log.d(TAG,
@@ -584,11 +590,29 @@ public class MainActivity extends AppCompatActivity {
             Mat src = new Mat();
             Mat dest = new Mat();
             int red = android.graphics.Color.rgb(255, 255, 255);
-            FloodFill(flooded,seed,(int)threshold,red);
-            Utils.bitmapToMat(flooded,src);
-            Imgproc.cvtColor(src,src,Imgproc.COLOR_BGR2GRAY);
-            Imgproc.threshold(src,src,254,254,Imgproc.THRESH_BINARY);
-            Utils.matToBitmap(src,flooded);
+            FloodFill(flooded, seed, (int) threshold, red);
+            Utils.bitmapToMat(flooded, src);
+            Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
+            Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
+            //Utils.matToBitmap(src, flooded);
+            List<MatOfPoint> contours = new ArrayList<>();
+            Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
+            Imgproc.findContours(src, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+           Log.i(TAG,"num of contours: "+contours.size());
+            //Imgproc.dilate(src,src,new Mat(15, 15, CvType.CV_8U));
+            int index=0;
+            double area=0;
+            double maxArea=0;
+            for(int i=0;i<contours.size();i++)
+            {
+                area = Imgproc.contourArea(contours.get(i));
+                if(area>maxArea)
+                {
+                    maxArea=area;
+                    index=i;
+                }
+            }
+            Imgproc.drawContours(src,contours,index,new Scalar(255,255,255),-1);
 
 
            /* Utils.bitmapToMat(bm, src);
