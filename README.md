@@ -23,4 +23,9 @@ We're trying to use the best tools and practices in order to produce a quality e
 | Documnetation | [![Inline docs](http://inch-ci.org/github/Oterem/moleAgnose.svg?branch=master)](https://github.com/Oterem/moleAgnose/tree/master/Material/docs) |
 
 
+## Software Design
+[State charts](https://github.com/Oterem/moleAgnose/blob/master/Material/Pics/state%20charts.png) <br/>
+[Sequence diagram](https://github.com/Oterem/moleAgnose/blob/master/Material/Pics/sequence%20diagram.png)
+
+
 
