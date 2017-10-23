@@ -6,11 +6,11 @@ This appliction is being developed as part of 4th year final project at the soft
 
 This project is developed as native android application using open source computer vision library - [OpenCV](https://opencv.org/)
 
-The project is supervised by our professor Mr. Assaf Spanier.
+The project is advisored by our professor Mr. Assaf Spanier.
 
 ## Tools & Practices
-We're trying to use the best tools and practices in order to produce a quality enginneered product.
-(replace 'jce-il/project-template' with your 'username/repo' and register to the relevant services)
+We're trying to use the best tools and practices in order to produce a quality engineered product.
+
 
 |Category|Status|
 |---|---|
