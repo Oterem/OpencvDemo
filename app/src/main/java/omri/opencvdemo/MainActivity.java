@@ -71,7 +71,10 @@ import java.util.Locale;
 import java.util.Queue;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.resource.bitmap.CenterInside;
 import com.theartofdev.edmodo.cropper.CropImage;
+import com.theartofdev.edmodo.cropper.CropImageActivity;
+import com.theartofdev.edmodo.cropper.CropImageView;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -100,7 +103,7 @@ public class MainActivity extends AppCompatActivity {
     static {
         System.loadLibrary("native-lib");
         if (!OpenCVLoader.initDebug()) {
-            Log.d(TAG, "static initializer: failed to load copenCV");
+            Log.d(TAG, "static initializer: failed to load openCV");
         } else {
             Log.d(TAG, "static initializer: openCV loaded");
         }
@@ -127,7 +130,6 @@ public class MainActivity extends AppCompatActivity {
             requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
         }
     }
-
 
 
     /*----------------------------------------------------------------------------*/
@@ -197,6 +199,7 @@ public class MainActivity extends AppCompatActivity {
         cursor.moveToFirst();
         return cursor.getString(column_index);
     }
+/*-------------------------------------------------------------------*/
 
     /**
      * For handling different intents
@@ -226,11 +229,10 @@ public class MainActivity extends AppCompatActivity {
                 case ACTION_GET_CONTENT: //in case user is loading picture from gallery
                     try {
                         photoURI = data.getData();
-
                         imageName = getRealPathFromURI(photoURI);
                         imageName = imageName.replaceFirst(".*/(\\w+).*", "$1");
-                        Intent intent = CropImage.activity(photoURI).getIntent(getBaseContext());
-                        setPic(currentBitmap, photoURI);
+                        CropImage.activity(photoURI).start(this);
+                        //setPic(currentBitmap, photoURI);
                         //startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
                     } catch (Exception e) {
                         Toast.makeText(getApplicationContext(), "Error loading picture", Toast.LENGTH_LONG).show();
@@ -240,7 +242,6 @@ public class MainActivity extends AppCompatActivity {
                     CropImage.ActivityResult result = CropImage.getActivityResult(data);
                     Uri resultUri = result.getUri();
                     try {
-
                         Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), resultUri);
                         currentBitmap = bm;
                         setPic(bm, resultUri);
@@ -394,15 +395,12 @@ public class MainActivity extends AppCompatActivity {
      */
     private void setPic(Bitmap bm, Uri resultUri) {
 
+        mImageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         mImageView = (ImageView) findViewById(R.id.pic1);
         Glide
                 .with(getBaseContext())
                 .asBitmap().load(resultUri)
-
                 .into(mImageView);
-        // mImageView.setImageBitmap(bm);
-
-
         analyze_btn.setEnabled(true);
     }
 
@@ -426,8 +424,6 @@ public class MainActivity extends AppCompatActivity {
     public void onAnalyzeClick(View v) {
 
         getBlobCoordinates();
-
-
 
 
     }
@@ -562,6 +558,7 @@ public class MainActivity extends AppCompatActivity {
                 //pictureFile = createImageFile();
                 pictureFile = getOutputMediaFile();
             } catch (Exception e) {
+                Toast.makeText(getBaseContext(),"Error creating image file",Toast.LENGTH_LONG).show();
             }
 
             if (pictureFile == null) {
@@ -603,25 +600,22 @@ public class MainActivity extends AppCompatActivity {
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
             Imgproc.findContours(src, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
-            Log.i(TAG,"num of contours: "+contours.size());
+            Log.i(TAG, "num of contours: " + contours.size());
             //Imgproc.dilate(src,src,new Mat(15, 15, CvType.CV_8U));
-            int index=0;
-            double area=0;
-            double maxArea=0;
-            for(int i=0;i<contours.size();i++)
-            {
+            int index = 0;
+            double area;
+            double maxArea = 0;
+            for (int i = 0; i < contours.size(); i++) {
                 area = Imgproc.contourArea(contours.get(i));
-                if(area>maxArea)
-                {
-                    maxArea=area;
-                    index=i;
+                if (area > maxArea) {
+                    maxArea = area;
+                    index = i;
                 }
             }
-            Imgproc.drawContours(src,contours,index,new Scalar(255,255,255),-1);
-            for (int i=0;i<contours.size();i++)
-            {
-                if(i!=index)
-                    Imgproc.drawContours(src,contours,i,new Scalar(0,0,0),-1);
+            Imgproc.drawContours(src, contours, index, new Scalar(255, 255, 255), -1);
+            for (int i = 0; i < contours.size(); i++) {
+                if (i != index)
+                    Imgproc.drawContours(src, contours, i, new Scalar(0, 0, 0), -1);
             }
 
 

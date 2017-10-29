@@ -1,11 +1,11 @@
 <resources>
-    <string name="app_name">OpencvDemo</string>
+    <string name="app_name">moleAgnose</string>
     <string name="analyze">ANALYZE</string>
     <string name="browse">BROWSE</string>
     <string name="take_photo">TAKE PHOTO</string>
     <string name="show_histogram">SHOW HISTOGRAM</string>
     <string name="browsing_gallery">browsing gallery</string>
-    <string name="image_proccess">image proccess</string>
+    <string name="image_proccess">image process</string>
     <string name="calculating_histogram">calculating histogram</string>
     <string name="launching_camera">launching camera</string>
     <string name="presenting_images">presenting images</string>
