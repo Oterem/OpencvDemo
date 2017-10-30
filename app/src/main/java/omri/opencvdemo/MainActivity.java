@@ -39,6 +39,7 @@ import org.opencv.android.Utils;
 
 import org.opencv.core.Core;
 
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import org.opencv.core.MatOfFloat;
@@ -184,6 +185,7 @@ public class MainActivity extends AppCompatActivity {
 
      /*----------------------------------------------------------------------------*/
 
+
     public String getRealPathFromURI(Uri uri) {
         String[] projection = {MediaStore.Images.Media.DATA};
         @SuppressWarnings("deprecation")
@@ -295,6 +297,7 @@ public class MainActivity extends AppCompatActivity {
                         Log.i(TAG, "Threshold is: " + threshold);
                         ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
                         b.setEnabled(false);
+
                         //uncomment this section to process image
                         MyAsyncTask work = new MyAsyncTask();
                         calculatedBitmap = currentBitmap;
@@ -320,9 +323,9 @@ public class MainActivity extends AppCompatActivity {
                         int pixel = bitmap.getPixel((int) seed.x, (int) seed.y);
                         seedRGB = new double[]{Color.red(pixel), Color.green(pixel), Color.blue(pixel)};
                         STATE = SAMPLE_SKIN;
-
                         alertDialog.setMessage("Click on the skin");
                         alertDialog.show();
+
                         return false;
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -549,14 +552,12 @@ public class MainActivity extends AppCompatActivity {
             BitmapFactory.Options myOptions = new BitmapFactory.Options();
             myOptions.inScaled = false;
             myOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;// important
-            mImageView.setMaxHeight(bitmap.getHeight());
-            mImageView.setMaxWidth(bitmap.getWidth());
             mImageView.setImageBitmap(bitmap);
             try {
                 //pictureFile = createImageFile();
                 pictureFile = getOutputSegmentFile();
             } catch (Exception e) {
-                Toast.makeText(getBaseContext(),"Error creating image file",Toast.LENGTH_LONG).show();
+                Toast.makeText(getBaseContext(), "Error creating image file", Toast.LENGTH_LONG).show();
             }
 
             if (pictureFile == null) {
@@ -589,9 +590,15 @@ public class MainActivity extends AppCompatActivity {
             flooded = bitmaps[1];
             Mat src = new Mat();
             Mat dest = new Mat();
+
             int red = android.graphics.Color.rgb(255, 255, 255);
+            Log.i(TAG, "doInBackground: before flood src: height "+flooded.getHeight()+",width "+flooded.getWidth());
             FloodFill(flooded, seed, (int) threshold, red);
+            Log.i(TAG, "doInBackground: after flood src: height "+flooded.getHeight()+",width "+flooded.getWidth());
             Utils.bitmapToMat(flooded, src);
+            Log.i(TAG, "doInBackground: after bitmapTomat src: height "+src.height()+",width "+src.width());
+
+
             Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
             Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
             //Utils.matToBitmap(src, flooded);
@@ -615,6 +622,21 @@ public class MainActivity extends AppCompatActivity {
                 if (i != index)
                     Imgproc.drawContours(src, contours, i, new Scalar(0, 0, 0), -1);
             }
+
+            //this section is for masking the segment the mole in full color
+            Mat original = new  Mat(1,1,CvType.CV_8UC3);//this is the original colored image
+            Utils.bitmapToMat(bm,original);//loading original colored image to the matrix
+            Imgproc.resize(original,original,new Size(src.width(),src.height()));//adapting and resizing the original to be same as src matrix dimentions
+            Mat result = Mat.zeros(bm.getWidth(),bm.getHeight(),CvType.CV_8UC3);//creating result matrix full of zeros at the begining
+            original.copyTo(result,src);//perform copy from original to result and using src matrix as mask
+
+
+
+            Log.i(TAG, "doInBackground: original: height "+original.height()+",width "+original.width());
+
+
+
+
 
 
            /* Utils.bitmapToMat(bm, src);
@@ -663,8 +685,8 @@ public class MainActivity extends AppCompatActivity {
 
             Bitmap bm = Bitmap.createBitmap(cloneDest.cols(), cloneDest.rows(), Bitmap.Config.ARGB_8888);
             Utils.matToBitmap(cloneDest, bm);*/
-            Bitmap bm = Bitmap.createBitmap(src.cols(), src.rows(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(src, bm);
+            Bitmap bm = Bitmap.createBitmap(result.cols(), result.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(result, bm);
             src.release();
             dest.release();
             //  cloneDest.release();
