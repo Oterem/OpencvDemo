@@ -1,7 +1,5 @@
 package omri.opencvdemo;
 
-import java.io.*;
-
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 
@@ -41,7 +39,6 @@ import org.opencv.android.Utils;
 
 import org.opencv.core.Core;
 
-import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import org.opencv.core.MatOfFloat;
@@ -71,10 +68,7 @@ import java.util.Locale;
 import java.util.Queue;
 
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.resource.bitmap.CenterInside;
 import com.theartofdev.edmodo.cropper.CropImage;
-import com.theartofdev.edmodo.cropper.CropImageActivity;
-import com.theartofdev.edmodo.cropper.CropImageView;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -150,7 +144,7 @@ public class MainActivity extends AppCompatActivity {
                 ".jpg",         /* suffix */
                 storageDir      /* directory */
         );
-
+        imageName=imageFileName;
         // Save a file: path for use with ACTION_VIEW intents
         currentPhotoPath = image.getAbsolutePath();
         return image;
@@ -439,18 +433,22 @@ public class MainActivity extends AppCompatActivity {
         private Bitmap bm;
         private Bitmap flooded;
 
-        private File getOutputMediaFile() {
+        /**
+         * @return File that contain the name and the directory of the segment image file
+         */
+
+        private File getOutputSegmentFile() {//Give Name to the segment file.
             // To be safe, you should check that the SDCard is mounted
             // using Environment.getExternalStorageState() before doing this.
             File mediaStorageDir = new File(Environment.getExternalStorageDirectory()
                     + "/Android/data/"
                     + getApplicationContext().getPackageName()
-                    + "/Files");
+                    + "/Files/SegmentFiles");
 
-            Log.i(TAG, "" + Environment.getExternalStorageDirectory()
-                    + "/Android/data/"
-                    + getApplicationContext().getPackageName()
-                    + "/Files");
+//            Log.i(TAG, "" + Environment.getExternalStorageDirectory()
+//                    + "/Android/data/"
+//                    + getApplicationContext().getPackageName()
+//                    + "/Files");
 
             // This location works best if you want the created images to be shared
             // between applications and persist after your app has been uninstalled.
@@ -556,7 +554,7 @@ public class MainActivity extends AppCompatActivity {
             mImageView.setImageBitmap(bitmap);
             try {
                 //pictureFile = createImageFile();
-                pictureFile = getOutputMediaFile();
+                pictureFile = getOutputSegmentFile();
             } catch (Exception e) {
                 Toast.makeText(getBaseContext(),"Error creating image file",Toast.LENGTH_LONG).show();
             }
