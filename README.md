@@ -1,4 +1,4 @@
- <img src="https://github.com/Oterem/moleAgnose/blob/master/Material/Pics/Application%20screenshots/logo.png" height="30%" width="20%"/>
+ <img src="https://github.com/Oterem/moleAgnose/blob/master/Material/Pics/Application%20screenshots/logo.png" height="40%" width="40%"/>
 
 ### moleAgnose -An application for detecting and diagnosing suspicious moles on human skin.
 
