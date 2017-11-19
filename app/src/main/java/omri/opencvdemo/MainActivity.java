@@ -553,6 +553,8 @@ public class MainActivity extends AppCompatActivity {
             });
             View v = findViewById(R.id.my_layout);
             v.setAlpha(1f);
+
+            /*Validation mechanism*/
             final AlertDialog.Builder alertDialog = new AlertDialog.Builder(MainActivity.this)
                     .setMessage(MainActivity.this.getString(R.string.validate_segment))
                     .setPositiveButton("YES", null)
@@ -564,13 +566,9 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
             AlertDialog alert = alertDialog.create();
-
             ColorDrawable dialogColor = new ColorDrawable(0x88000000);
-
             //alert.getWindow().setGravity(Gravity.TOP);
-
-
-            alert.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            alert.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);//disable dimmed background
             alert.show();
             calculatedBitmap = Bitmap.createBitmap(bitmap);//aliasing
             mImageView.destroyDrawingCache();
