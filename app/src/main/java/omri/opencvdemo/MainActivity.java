@@ -3,6 +3,8 @@ package omri.opencvdemo;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 
+import android.app.Dialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 
 import android.database.Cursor;
@@ -14,6 +16,7 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -27,8 +30,10 @@ import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
@@ -44,6 +49,7 @@ import org.opencv.core.Mat;
 
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
+import org.opencv.core.Algorithm;
 
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
@@ -145,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
                 ".jpg",         /* suffix */
                 storageDir      /* directory */
         );
-        imageName=imageFileName;
+        imageName = imageFileName;
         // Save a file: path for use with ACTION_VIEW intents
         currentPhotoPath = image.getAbsolutePath();
         return image;
@@ -169,7 +175,7 @@ public class MainActivity extends AppCompatActivity {
             try {
                 photoFile = createImageFile();
             } catch (IOException ex) {
-                Toast.makeText(getApplicationContext(), "Error occurred while creating the File", Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), R.string.create_file_error, Toast.LENGTH_LONG).show();
             }
 
             // Continue only if the File was successfully created
@@ -218,7 +224,7 @@ public class MainActivity extends AppCompatActivity {
                         Intent intent = CropImage.activity(photoURI).getIntent(getBaseContext());
                         startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
                     } catch (Exception e) {
-                        Toast.makeText(getApplicationContext(), "Error taking picture", Toast.LENGTH_LONG).show();
+                        Toast.makeText(getApplicationContext(), R.string.create_file_error, Toast.LENGTH_LONG).show();
                     }
                     break;
 
@@ -231,18 +237,19 @@ public class MainActivity extends AppCompatActivity {
                         //setPic(currentBitmap, photoURI);
                         //startActivityForResult(intent, CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE);
                     } catch (Exception e) {
-                        Toast.makeText(getApplicationContext(), "Error loading picture", Toast.LENGTH_LONG).show();
+                        Toast.makeText(getApplicationContext(), R.string.load_image_error, Toast.LENGTH_LONG).show();
                     }
                     break;
                 case CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE: //cropping image
                     CropImage.ActivityResult result = CropImage.getActivityResult(data);
                     Uri resultUri = result.getUri();
+                    photoURI = resultUri;
                     try {
                         Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), resultUri);
                         currentBitmap = bm;
                         setPic(bm, resultUri);
                     } catch (Exception e) {
-                        Toast.makeText(getApplicationContext(), "Error cropping picture", Toast.LENGTH_LONG).show();
+                        Toast.makeText(getApplicationContext(), R.string.crop_image_error, Toast.LENGTH_LONG).show();
                     }
                     break;
 
@@ -260,7 +267,7 @@ public class MainActivity extends AppCompatActivity {
     private void getBlobCoordinates() {
 
         final AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this)
-                .setMessage("Click on suspicions blob")
+                .setMessage(MainActivity.this.getString(R.string.sample_from_blob))
                 .setPositiveButton("GOT IT", null).show();
 
         //setting a listener on imageview for sampling points
@@ -303,6 +310,8 @@ public class MainActivity extends AppCompatActivity {
                         calculatedBitmap = currentBitmap;
                         Bitmap[] array = {calculatedBitmap, bitmap};
                         work.execute(array);
+
+
                         return false;
 
                     } catch (Exception e) {
@@ -323,7 +332,7 @@ public class MainActivity extends AppCompatActivity {
                         int pixel = bitmap.getPixel((int) seed.x, (int) seed.y);
                         seedRGB = new double[]{Color.red(pixel), Color.green(pixel), Color.blue(pixel)};
                         STATE = SAMPLE_SKIN;
-                        alertDialog.setMessage("Click on the skin");
+                        alertDialog.setMessage(MainActivity.this.getString(R.string.sample_from_skin));
                         alertDialog.show();
 
                         return false;
@@ -544,6 +553,25 @@ public class MainActivity extends AppCompatActivity {
             });
             View v = findViewById(R.id.my_layout);
             v.setAlpha(1f);
+            final AlertDialog.Builder alertDialog = new AlertDialog.Builder(MainActivity.this)
+                    .setMessage(MainActivity.this.getString(R.string.validate_segment))
+                    .setPositiveButton("YES", null)
+                    .setNegativeButton("NO", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            setPic(null,photoURI);
+                            getBlobCoordinates();
+                        }
+                    });
+            AlertDialog alert = alertDialog.create();
+
+            ColorDrawable dialogColor = new ColorDrawable(0x88000000);
+
+            //alert.getWindow().setGravity(Gravity.TOP);
+
+
+            alert.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            alert.show();
             calculatedBitmap = Bitmap.createBitmap(bitmap);//aliasing
             mImageView.destroyDrawingCache();
 
@@ -552,12 +580,13 @@ public class MainActivity extends AppCompatActivity {
             BitmapFactory.Options myOptions = new BitmapFactory.Options();
             myOptions.inScaled = false;
             myOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;// important
-            mImageView.setImageBitmap(bitmap);
+
+            mImageView.setImageBitmap(calculatedBitmap);
             try {
                 //pictureFile = createImageFile();
                 pictureFile = getOutputSegmentFile();
             } catch (Exception e) {
-                Toast.makeText(getBaseContext(), "Error creating image file", Toast.LENGTH_LONG).show();
+                Toast.makeText(getBaseContext(), R.string.create_file_error, Toast.LENGTH_LONG).show();
             }
 
             if (pictureFile == null) {
@@ -587,21 +616,17 @@ public class MainActivity extends AppCompatActivity {
         protected Bitmap doInBackground(Bitmap... bitmaps) {
 
             bm = bitmaps[0];
-            flooded = bitmaps[1];
             Mat src = new Mat();
-            Mat dest = new Mat();
-
+            Utils.bitmapToMat(bm, src);
+            flooded = bitmaps[1];
             int red = android.graphics.Color.rgb(255, 255, 255);
-            Log.i(TAG, "doInBackground: before flood src: height "+flooded.getHeight()+",width "+flooded.getWidth());
             FloodFill(flooded, seed, (int) threshold, red);
-            Log.i(TAG, "doInBackground: after flood src: height "+flooded.getHeight()+",width "+flooded.getWidth());
             Utils.bitmapToMat(flooded, src);
-            Log.i(TAG, "doInBackground: after bitmapTomat src: height "+src.height()+",width "+src.width());
 
-
+           /*
+            Utils.bitmapToMat(flooded, src);
             Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
             Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
-            //Utils.matToBitmap(src, flooded);
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
             Imgproc.findContours(src, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
@@ -622,22 +647,19 @@ public class MainActivity extends AppCompatActivity {
                 if (i != index)
                     Imgproc.drawContours(src, contours, i, new Scalar(0, 0, 0), -1);
             }
+*/
+
+           /*-----------------------------------------------------*/
+
 
             //this section is for masking the segment the mole in full color
-            Mat original = new  Mat(1,1,CvType.CV_8UC3);//this is the original colored image
+
+          /*  Mat original = new  Mat(1,1,CvType.CV_8UC3);//this is the original colored image
             Utils.bitmapToMat(bm,original);//loading original colored image to the matrix
             Imgproc.resize(original,original,new Size(src.width(),src.height()));//adapting and resizing the original to be same as src matrix dimentions
             Mat result = Mat.zeros(bm.getWidth(),bm.getHeight(),CvType.CV_8UC3);//creating result matrix full of zeros at the begining
             original.copyTo(result,src);//perform copy from original to result and using src matrix as mask
-
-
-
-            Log.i(TAG, "doInBackground: original: height "+original.height()+",width "+original.width());
-
-
-
-
-
+        */
 
            /* Utils.bitmapToMat(bm, src);
             Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
@@ -685,10 +707,10 @@ public class MainActivity extends AppCompatActivity {
 
             Bitmap bm = Bitmap.createBitmap(cloneDest.cols(), cloneDest.rows(), Bitmap.Config.ARGB_8888);
             Utils.matToBitmap(cloneDest, bm);*/
-            Bitmap bm = Bitmap.createBitmap(result.cols(), result.rows(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(result, bm);
-            src.release();
-            dest.release();
+            Bitmap bm = Bitmap.createBitmap(src.cols(), src.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(src, bm);
+            // src.release();
+            // dest.release();
             //  cloneDest.release();
             //  hierarchy.release();
             return bm;
