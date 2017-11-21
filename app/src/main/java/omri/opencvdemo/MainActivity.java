@@ -3,7 +3,6 @@ package omri.opencvdemo;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 
-import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 
@@ -25,12 +24,12 @@ import android.os.Environment;
 
 import android.provider.MediaStore;
 
+import android.provider.Settings;
 import android.support.v4.content.FileProvider;
 
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -49,9 +48,9 @@ import org.opencv.core.Mat;
 
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
-import org.opencv.core.Algorithm;
 
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
@@ -59,6 +58,7 @@ import org.opencv.core.Size;
 
 import org.opencv.imgproc.Imgproc;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.imgproc.Moments;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -439,7 +439,7 @@ public class MainActivity extends AppCompatActivity {
      * The MyAsyncTask class implements the AsyncTask class.
      * It is used for a "heavy" image process
      */
-    private class MyAsyncTask extends AsyncTask<Bitmap, Void, Bitmap> {
+    private class MyAsyncTask extends AsyncTask<Bitmap, Integer, Bitmap> {
 
 
         private Bitmap bm;
@@ -479,8 +479,23 @@ public class MainActivity extends AppCompatActivity {
             return mediaFile;
         }
 
+
+        private void edgeTest(Bitmap bmp, Point p, int threshold, int replacementColor) {
+            if (PixelCalc.calcDistance(seedAvgColor, new Point(p.x + 1, p.y), bmp) > threshold)//right neighbor
+            {
+                if (PixelCalc.calcDistance(seedAvgColor, new Point(p.x - 1, p.y), bmp) > threshold)//left neighbor
+                {
+                    if (PixelCalc.calcDistance(seedAvgColor, new Point(p.x, p.y - 1), bmp) > threshold)//up neighbor
+                    {
+                        if (PixelCalc.calcDistance(seedAvgColor, new Point(p.x, p.y + 1), bmp) > threshold)//down neighbor
+                            bmp.setPixel((int) p.x, (int) p.y, Color.RED);
+                    }
+                }
+            }
+        }
+
         /*----------------------------------------------------------*/
-        private void FloodFill(Bitmap bmp, Point seed, int threshold, int replacementColor) {
+        private void regionGrowing(Bitmap bmp, Point seed, int threshold, int replacementColor) {
 
             int x = (int) seed.x;
             int y = (int) seed.y;
@@ -488,6 +503,7 @@ public class MainActivity extends AppCompatActivity {
             q.add(seed);
             while (q.size() > 0) {
                 Point n = q.poll();//n is the head of list
+                edgeTest(bmp, n, threshold, 1);
                 if (PixelCalc.calcDistance(seedAvgColor, n, bmp) > threshold)//in case pixel does not belong
                     continue;
 
@@ -514,6 +530,7 @@ public class MainActivity extends AppCompatActivity {
 
 
         /*-----------------------------------------------------------*/
+
 
         /**
          * Set the view before image process.
@@ -561,7 +578,7 @@ public class MainActivity extends AppCompatActivity {
                     .setNegativeButton("NO", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
-                            setPic(null,photoURI);
+                            setPic(null, photoURI);
                             getBlobCoordinates();
                         }
                     });
@@ -570,7 +587,8 @@ public class MainActivity extends AppCompatActivity {
             //alert.getWindow().setGravity(Gravity.TOP);
             alert.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);//disable dimmed background
             alert.show();
-            calculatedBitmap = Bitmap.createBitmap(bitmap);//aliasing
+            // calculatedBitmap = Bitmap.createBitmap(bitmap);//aliasing
+            mImageView.setImageResource(0);
             mImageView.destroyDrawingCache();
 
             //---------- image saving-----------
@@ -579,7 +597,7 @@ public class MainActivity extends AppCompatActivity {
             myOptions.inScaled = false;
             myOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;// important
 
-            mImageView.setImageBitmap(calculatedBitmap);
+            mImageView.setImageBitmap(bitmap);
             try {
                 //pictureFile = createImageFile();
                 pictureFile = getOutputSegmentFile();
@@ -615,96 +633,73 @@ public class MainActivity extends AppCompatActivity {
 
             bm = bitmaps[0];
             Mat src = new Mat();
+            Mat dest = new Mat();
             Utils.bitmapToMat(bm, src);
             flooded = bitmaps[1];
             int red = android.graphics.Color.rgb(255, 255, 255);
-            FloodFill(flooded, seed, (int) threshold, red);
-            Utils.bitmapToMat(flooded, src);
-
-           /*
+            regionGrowing(flooded, seed, (int) threshold, red);
             Utils.bitmapToMat(flooded, src);
             Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
             Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
-            Imgproc.findContours(src, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
-            Log.i(TAG, "num of contours: " + contours.size());
-            //Imgproc.dilate(src,src,new Mat(15, 15, CvType.CV_8U));
-            int index = 0;
-            double area;
-            double maxArea = 0;
+
+            /*finding the main contour*/
+            Imgproc.findContours(src, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+            Log.i(TAG, "doInBackground: num of contours: " + contours.size());
+            Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
+            Imgproc.drawContours(src, contours, -1, new Scalar(255, 0, 0), 6);
+
+            /*draw centroid on contour*/
+            List<Moments> mu = new ArrayList<>(contours.size());
+            int x = 0;
+            int y = 0;
             for (int i = 0; i < contours.size(); i++) {
-                area = Imgproc.contourArea(contours.get(i));
-                if (area > maxArea) {
-                    maxArea = area;
-                    index = i;
+                mu.add(i, Imgproc.moments(contours.get(i), false));
+                Moments p = mu.get(i);
+                x = (int) (p.get_m10() / p.get_m00());
+                y = (int) (p.get_m01() / p.get_m00());
+                Imgproc.circle(src, new Point(x, y), 10, new Scalar(0, 0, 255), 5);
+            }
+
+
+            Point[] points;
+            points = contours.get(0).toArray();
+            double maxRadius = 0;
+            for (Point p:points) {
+                double a = (x - p.x) * (x - p.x);
+                double b = (y - p.y) * (y - p.y);
+                double len = Math.sqrt((a + b));
+                if (len > maxRadius) {
+                    maxRadius = len;
                 }
             }
-            Imgproc.drawContours(src, contours, index, new Scalar(255, 255, 255), -1);
-            for (int i = 0; i < contours.size(); i++) {
-                if (i != index)
-                    Imgproc.drawContours(src, contours, i, new Scalar(0, 0, 0), -1);
-            }
-*/
 
-           /*-----------------------------------------------------*/
+           /*create a mask with only the circle - to compare later with matchShapes*/
+            Mat circle = new Mat(src.rows(), src.cols(), CvType.CV_8UC1);
+            Imgproc.circle(circle, new Point(x, y), (int) maxRadius, new Scalar(255, 255, 255), 5);
+            List<MatOfPoint> contours1 = new ArrayList<>();
+            Mat hierarchy1 = new Mat();//for findContours calculation. Do not touch.
+            Imgproc.threshold(circle, circle, 254, 254, Imgproc.THRESH_BINARY);
+            Imgproc.findContours(circle, contours1, hierarchy1, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_NONE);
+
+            /*calculate the difference between contour and a the minimal enclosing circlea*/
+            double diff = Imgproc.matchShapes(contours.get(0), contours1.get(0), Imgproc.CV_CONTOURS_MATCH_I2, 0)*1000;
+            Log.i(TAG, "doInBackground: diff: " + diff);
+            Imgproc.circle(src, new Point(x, y), (int) maxRadius, new Scalar(0, 255, 0), 5);
+
 
 
             //this section is for masking the segment the mole in full color
-
-          /*  Mat original = new  Mat(1,1,CvType.CV_8UC3);//this is the original colored image
+            /*
+            Mat original = new  Mat(1,1,CvType.CV_8UC3);//this is the original colored image
             Utils.bitmapToMat(bm,original);//loading original colored image to the matrix
             Imgproc.resize(original,original,new Size(src.width(),src.height()));//adapting and resizing the original to be same as src matrix dimentions
             Mat result = Mat.zeros(bm.getWidth(),bm.getHeight(),CvType.CV_8UC3);//creating result matrix full of zeros at the begining
             original.copyTo(result,src);//perform copy from original to result and using src matrix as mask
-        */
-
-           /* Utils.bitmapToMat(bm, src);
-            Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
-            Imgproc.threshold(src, dest, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
-            Imgproc.morphologyEx(dest, dest, Imgproc.MORPH_OPEN, kernel);
-            List<MatOfPoint> contours = new ArrayList<>();
-            Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
-            Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_TC89_KCOS);
-            List<MatOfPoint> contoursClone = new ArrayList<>();
-            int scale = 0;
-            Mat cloneDest = dest.clone();
-            double area;
-            int num_of_contours = contours.size();
-            while (num_of_contours > 5 & scale <= 14) {
-                contours.clear();
-                contoursClone.clear();
-                scale++;
-                Imgproc.blur(dest, dest, new org.opencv.core.Size(scale, scale));
-                Imgproc.findContours(dest, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
-                for (int i = 0; i < contours.size(); i++) {
-
-                    area = Imgproc.contourArea(contours.get(i));
-                    if (area > 500)
-                        contoursClone.add(contours.get(i));
-
-                }
+            */
 
 
-                num_of_contours = contoursClone.size();
-            }
-
-            Imgproc.erode(cloneDest, cloneDest, new Mat(15, 15, CvType.CV_8U));
-            Imgproc.cvtColor(cloneDest, cloneDest, Imgproc.COLOR_GRAY2RGB);
-            Imgproc.drawContours(cloneDest, contoursClone, -1, new Scalar(255, 0, 0), 6);
-            Imgproc.drawContours(cloneDest, contoursClone, -1, new Scalar(255, 255, 255), -1);
-            List<Moments> mu = new ArrayList<>(contours.size());
-            for (int i = 0; i < contoursClone.size(); i++) {
-                mu.add(i, Imgproc.moments(contoursClone.get(i), false));
-                Moments p = mu.get(i);
-                int x = (int) (p.get_m10() / p.get_m00());
-                int y = (int) (p.get_m01() / p.get_m00());
-                Imgproc.circle(cloneDest, new Point(x, y), 10, new Scalar(0, 0, 255), 8);
-            }
-
-
-            Bitmap bm = Bitmap.createBitmap(cloneDest.cols(), cloneDest.rows(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(cloneDest, bm);*/
             Bitmap bm = Bitmap.createBitmap(src.cols(), src.rows(), Bitmap.Config.ARGB_8888);
             Utils.matToBitmap(src, bm);
             // src.release();

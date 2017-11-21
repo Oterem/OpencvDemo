@@ -55,18 +55,18 @@ public abstract class PixelCalc {
     }
 
 
-    public static boolean checkBoundaries(Point seed, Bitmap bitmap) {
+    private static boolean checkBoundaries(Point seed, Bitmap bitmap) {
         try {
-            int test = bitmap.getPixel((int) seed.x, (int) seed.y);//Test me
-            test = bitmap.getPixel((int) seed.x - 1, (int) seed.y);//Left to seed
-            test = bitmap.getPixel((int) seed.x + 1, (int) seed.y);//Right to seed
-            test = bitmap.getPixel((int) seed.x, (int) seed.y - 1);//Above seed
-            test = bitmap.getPixel((int) seed.x, (int) seed.y + 1);//Below seed
-            test = bitmap.getPixel((int) seed.x - 1, (int) seed.y - 1);//Up left
-            test = bitmap.getPixel((int) seed.x + 1, (int) seed.y + 1);//Down right
-            test = bitmap.getPixel((int) seed.x - 1, (int) seed.y + 1);//Down left
-            test = bitmap.getPixel((int) seed.x + 1, (int) seed.y - 1);//Up right
-            test = 0;
+            bitmap.getPixel((int) seed.x, (int) seed.y);//Test me
+            bitmap.getPixel((int) seed.x - 1, (int) seed.y);//Left to seed
+             bitmap.getPixel((int) seed.x + 1, (int) seed.y);//Right to seed
+            bitmap.getPixel((int) seed.x, (int) seed.y - 1);//Above seed
+             bitmap.getPixel((int) seed.x, (int) seed.y + 1);//Below seed
+             bitmap.getPixel((int) seed.x - 1, (int) seed.y - 1);//Up left
+            bitmap.getPixel((int) seed.x + 1, (int) seed.y + 1);//Down right
+             bitmap.getPixel((int) seed.x - 1, (int) seed.y + 1);//Down left
+             bitmap.getPixel((int) seed.x + 1, (int) seed.y - 1);//Up right
+
         } catch (Exception e) {
             Log.e("", "checkBoundaries error");
             return false;
@@ -83,21 +83,22 @@ public abstract class PixelCalc {
     }
     public static double calcDistance(Point a, Point b,Bitmap bitmap)
     {
-
         int pixelA = bitmap.getPixel((int) a.x, (int) a.y);
         int pixelB = bitmap.getPixel((int) b.x, (int) b.y);
         double[] aChannels= {Color.red(pixelA),Color.green(pixelA),Color.blue(pixelA)};
         double[] bChannels= {Color.red(pixelB),Color.green(pixelB),Color.blue(pixelB)};
-        double res= calcDistance(aChannels,bChannels);
-        return res;
+        return calcDistance(aChannels,bChannels);
+
 
     }
     public static double calcDistance(double[] a, Point b,Bitmap bitmap)
     {
-        int pixelB = bitmap.getPixel((int) b.x, (int) b.y);
-        double[] bChannels= {Color.red(pixelB),Color.green(pixelB),Color.blue(pixelB)};
-        double res= calcDistance(a,bChannels);
-        return res;
+        if(b.x>=0 && b.y>=0){
+            int pixelB = bitmap.getPixel((int) b.x, (int) b.y);
+            double[] bChannels= {Color.red(pixelB),Color.green(pixelB),Color.blue(pixelB)};
+            return  calcDistance(a,bChannels);
+        }
+        return 300;
 
     }
 
