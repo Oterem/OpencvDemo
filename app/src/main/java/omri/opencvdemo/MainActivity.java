@@ -37,6 +37,7 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.opencv.android.Utils;
@@ -65,6 +66,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -98,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
     private double threshold;
     private static int SCALING_DIVIDER = 2;
     private String imageName = "";
+    private  double diff=0;
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -423,6 +426,8 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent();
         intent.setType("image/*");
         intent.setAction(Intent.ACTION_GET_CONTENT);
+        TextView t =(TextView)findViewById(R.id.textView);
+        t.setText("");
         startActivityForResult(Intent.createChooser(intent, "Select Picture"), ACTION_GET_CONTENT);
     }
     /*----------------------------------------------------------------------------*/
@@ -560,6 +565,7 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(Bitmap bitmap) {
 
             pb.setVisibility(View.INVISIBLE);
+
             pb.animate().setDuration(0).alpha(
                     0).setListener(new AnimatorListenerAdapter() {
                 @Override
@@ -590,6 +596,9 @@ public class MainActivity extends AppCompatActivity {
             // calculatedBitmap = Bitmap.createBitmap(bitmap);//aliasing
             mImageView.setImageResource(0);
             mImageView.destroyDrawingCache();
+            TextView t = (TextView)findViewById(R.id.textView);
+            diff =Double.parseDouble(new DecimalFormat("##.##").format(diff));
+            t.setText("difference is "+diff+"%");
 
             //---------- image saving-----------
             File pictureFile = null;
@@ -684,9 +693,11 @@ public class MainActivity extends AppCompatActivity {
             Imgproc.findContours(circle, contours1, hierarchy1, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_NONE);
 
             /*calculate the difference between contour and a the minimal enclosing circlea*/
-            double diff = Imgproc.matchShapes(contours.get(0), contours1.get(0), Imgproc.CV_CONTOURS_MATCH_I2, 0)*1000;
+            diff = Imgproc.matchShapes(contours.get(0), contours1.get(0), Imgproc.CV_CONTOURS_MATCH_I2, 0)*1000;
             Log.i(TAG, "doInBackground: diff: " + diff);
             Imgproc.circle(src, new Point(x, y), (int) maxRadius, new Scalar(0, 255, 0), 5);
+
+
 
 
 
