@@ -3,9 +3,13 @@ package omri.opencvdemo;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 
+
+//import org.bytedeco.javacpp.opencv_core;
+import org.opencv.core.Core;
+
 import android.content.DialogInterface;
 import android.content.Intent;
-
+//import static org.bytedeco.javacpp.opencv_core.*;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 
@@ -30,6 +34,7 @@ import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -53,6 +58,8 @@ import org.opencv.core.MatOfInt;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
+import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 
@@ -60,6 +67,7 @@ import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.imgproc.Moments;
+import org.opencv.utils.Converters;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -75,6 +83,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Queue;
+import java.util.Vector;
 
 import com.bumptech.glide.Glide;
 import com.theartofdev.edmodo.cropper.CropImage;
@@ -100,7 +109,7 @@ public class MainActivity extends AppCompatActivity {
     private double threshold;
     private static int SCALING_DIVIDER = 2;
     private String imageName = "";
-    private  double diff=0;
+    private double diff = 0;
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -288,8 +297,8 @@ public class MainActivity extends AppCompatActivity {
                         Bitmap bitmap = mImageView.getDrawingCache();
                         int pixel = bitmap.getPixel((int) skin.x, (int) skin.y);
                         skinRGB = new double[]{Color.red(pixel), Color.green(pixel), Color.blue(pixel)};
-                        Log.i(TAG, "seed - r:" + seedRGB[2] + " ,g:" + seedRGB[1] + " b:" + seedRGB[0]);
-                        Log.i(TAG, "skin - r:" + skinRGB[2] + " ,g:" + skinRGB[1] + " b:" + skinRGB[0]);
+                        // Log.i(TAG, "seed - r:" + seedRGB[2] + " ,g:" + seedRGB[1] + " b:" + seedRGB[0]);
+                        // Log.i(TAG, "skin - r:" + skinRGB[2] + " ,g:" + skinRGB[1] + " b:" + skinRGB[0]);
                         mImageView.setOnTouchListener(null);
                         skinRGB = null;
                         seedRGB = null;
@@ -300,11 +309,11 @@ public class MainActivity extends AppCompatActivity {
 
                         seedAvgColor = PixelCalc.avgSurround(seed, bitmap);
                         skinAvgColor = PixelCalc.avgSurround(skin, bitmap);
-                        Log.i(TAG, "avgSeed - r:" + (int) seedAvgColor[0] + " ,g:" + (int) seedAvgColor[1] + " b:" + (int) seedAvgColor[2]);
-                        Log.i(TAG, "avgSkin - r:" + (int) skinAvgColor[0] + " ,g:" + (int) skinAvgColor[1] + " b:" + (int) skinAvgColor[2]);
+                        // Log.i(TAG, "avgSeed - r:" + (int) seedAvgColor[0] + " ,g:" + (int) seedAvgColor[1] + " b:" + (int) seedAvgColor[2]);
+                        // Log.i(TAG, "avgSkin - r:" + (int) skinAvgColor[0] + " ,g:" + (int) skinAvgColor[1] + " b:" + (int) skinAvgColor[2]);
 
                         threshold = PixelCalc.calcDistance(seedAvgColor, skinAvgColor) / SCALING_DIVIDER;
-                        Log.i(TAG, "Threshold is: " + threshold);
+                        // Log.i(TAG, "Threshold is: " + threshold);
                         ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
                         b.setEnabled(false);
 
@@ -426,7 +435,7 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent();
         intent.setType("image/*");
         intent.setAction(Intent.ACTION_GET_CONTENT);
-        TextView t =(TextView)findViewById(R.id.textView);
+        TextView t = (TextView) findViewById(R.id.textView);
         t.setText("");
         startActivityForResult(Intent.createChooser(intent, "Select Picture"), ACTION_GET_CONTENT);
     }
@@ -590,15 +599,18 @@ public class MainActivity extends AppCompatActivity {
                     });
             AlertDialog alert = alertDialog.create();
             ColorDrawable dialogColor = new ColorDrawable(0x88000000);
-            //alert.getWindow().setGravity(Gravity.TOP);
+            // alert.getWindow().getAttributes().x = 100;
+            alert.getWindow().setGravity(Gravity.CENTER);
+            alert.getWindow().getAttributes().y = -200;
+
             alert.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);//disable dimmed background
             alert.show();
             // calculatedBitmap = Bitmap.createBitmap(bitmap);//aliasing
             mImageView.setImageResource(0);
             mImageView.destroyDrawingCache();
-            TextView t = (TextView)findViewById(R.id.textView);
-            diff =Double.parseDouble(new DecimalFormat("##.##").format(diff));
-            t.setText("difference is "+diff+"%");
+            TextView t = (TextView) findViewById(R.id.textView);
+            // diff =Double.parseDouble(new DecimalFormat("##.##").format(diff));
+            t.setText("difference is " + diff + "%");
 
             //---------- image saving-----------
             File pictureFile = null;
@@ -634,6 +646,44 @@ public class MainActivity extends AppCompatActivity {
 
         /*-----------------------------------------------------*/
 
+        protected double getMean(double[] array) {
+            double sum = 0.0;
+            for (double val : array) {
+                sum += val;
+            }
+            return sum / array.length;
+        }
+
+        /*-----------------------------------------------------*/
+        protected double getVariance(double[] array) {
+            double mean = getMean(array);
+            double temp = 0;
+            for (double val : array) {
+                temp += (val - mean) * (val - mean);
+            }
+            return temp / (array.length - 1);
+        }
+
+        /*-----------------------------------------------------*/
+        protected double calcDistance(Point a, Point b){
+
+            double x = (a.x-b.x)*(a.x-b.x);
+            double y = (a.y-b.y)*(a.y-b.y);
+            return Math.sqrt(x+y);
+        }
+
+        /*-----------------------------------------------------*/
+        protected double getCovariance(double[] x, double[] y) {
+            int n = x.length;
+            double averageX = getMean(x);
+            double averageY = getMean(y);
+            double sum = 0.0;
+            for (int i = 0; i < n; i++) {
+                sum += (x[i] - averageX) * (y[i] - averageY);
+            }
+            return sum / n;
+        }
+
         /**
          * This method perform image process
          */
@@ -650,55 +700,273 @@ public class MainActivity extends AppCompatActivity {
             Utils.bitmapToMat(flooded, src);
             Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
             Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
+
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
 
             /*finding the main contour*/
+
             Imgproc.findContours(src, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
-            Log.i(TAG, "doInBackground: num of contours: " + contours.size());
-            Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
-            Imgproc.drawContours(src, contours, -1, new Scalar(255, 0, 0), 6);
+            //Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
+            // Imgproc.drawContours(src, contours, -1, new Scalar(255, 0, 0), 6);
 
             /*draw centroid on contour*/
+            /*
             List<Moments> mu = new ArrayList<>(contours.size());
+            Point center = new Point();
             int x = 0;
             int y = 0;
+            double s = 0;
             for (int i = 0; i < contours.size(); i++) {
                 mu.add(i, Imgproc.moments(contours.get(i), false));
                 Moments p = mu.get(i);
                 x = (int) (p.get_m10() / p.get_m00());
                 y = (int) (p.get_m01() / p.get_m00());
+
+                s = 0.5 * Math.atan((2 * (p.get_m11())) / ((p.get_m20()) - (p.get_m02())));
                 Imgproc.circle(src, new Point(x, y), 10, new Scalar(0, 0, 255), 5);
             }
+            center.x = x;
+            center.y = y;
 
 
             Point[] points;
             points = contours.get(0).toArray();
             double maxRadius = 0;
-            for (Point p:points) {
+            for (Point p : points) {
                 double a = (x - p.x) * (x - p.x);
                 double b = (y - p.y) * (y - p.y);
                 double len = Math.sqrt((a + b));
                 if (len > maxRadius) {
                     maxRadius = len;
                 }
-            }
+            }*/
+
 
            /*create a mask with only the circle - to compare later with matchShapes*/
-            Mat circle = new Mat(src.rows(), src.cols(), CvType.CV_8UC1);
+
+            /*Mat circle = new Mat(src.rows(), src.cols(), CvType.CV_8UC1);
             Imgproc.circle(circle, new Point(x, y), (int) maxRadius, new Scalar(255, 255, 255), 5);
             List<MatOfPoint> contours1 = new ArrayList<>();
             Mat hierarchy1 = new Mat();//for findContours calculation. Do not touch.
             Imgproc.threshold(circle, circle, 254, 254, Imgproc.THRESH_BINARY);
             Imgproc.findContours(circle, contours1, hierarchy1, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_NONE);
+            */
 
-            /*calculate the difference between contour and a the minimal enclosing circlea*/
-            diff = Imgproc.matchShapes(contours.get(0), contours1.get(0), Imgproc.CV_CONTOURS_MATCH_I2, 0)*1000;
-            Log.i(TAG, "doInBackground: diff: " + diff);
-            Imgproc.circle(src, new Point(x, y), (int) maxRadius, new Scalar(0, 255, 0), 5);
+            /*calculate the difference between contour and a the minimal enclosing circle*/
+
+            MatOfPoint2f m = new MatOfPoint2f();
+            contours.get(0).convertTo(m, CvType.CV_32F);
+
+            //double peri = Imgproc.arcLength(m, true);
+            // diff = (4 * Imgproc.contourArea(contours.get(0)) * Math.PI) / (peri * peri);
+            //diff = Imgproc.matchShapes(contours.get(0), contours1.get(0), Imgproc.CV_CONTOURS_MATCH_I2, 0)*1000;
+
+            Point center = new Point();
+            //for enclosing ellipse
+            RotatedRect rect = Imgproc.fitEllipse(m);
+            center = rect.center;
+            double longSide, shortSide;
+            if (rect.size.width > rect.size.height) {
+                longSide = rect.size.width;
+                shortSide = rect.size.height;
+            } else {
+                longSide = rect.size.height;
+                shortSide = rect.size.width;
+            }
+
+            Vector<Point> vecOfShortPoints = new Vector<>();
+            Vector<Point> vecOfLongPoints = new Vector<>();
+
+            //Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
+            Point[] rectPoints = new Point[4];
+            rect.points(rectPoints);
+            Point onLong1,onLong2,onShort1,onShort2;
+            Point iterA,iterB;
+            for(int i=0;i<4;i++){
+                for(int j=i;j<4;j++){
+                    double distance=0;
+                    iterA = rectPoints[i];
+                    iterB=rectPoints[j];
+                    distance = calcDistance(iterA,iterB);
+                    if(distance==0){
+                        continue;
+                    }
+                    if(Math.abs(distance-longSide)<=0.5){
+                        double newX = ((iterA.x+iterB.x)/2);
+                        double newY =((iterA.y+iterB.y)/2);
+                        Point toAdd = new Point(newX,newY);
+                        vecOfLongPoints.add(toAdd);
+                    }
+                    else if(Math.abs(distance-shortSide)<=0.5){
+                        double newX = ((iterA.x+iterB.x)/2);
+                        double newY =((iterA.y+iterB.y)/2);
+                        Point toAdd = new Point(newX,newY);
+                        vecOfShortPoints.add(toAdd);
+                    }
+                }
+            }
 
 
 
+            Imgproc.line(src,vecOfLongPoints.firstElement(),vecOfLongPoints.lastElement(),new Scalar(0, 0,0 ), 5);
+            //Imgproc.line(src,vecOfShortPoints.firstElement(),vecOfShortPoints.lastElement(),new Scalar(255, 0,0 ), 4);
+            List<MatOfPoint> firstCountour = new ArrayList<>();
+            List<MatOfPoint> secondCountour = new ArrayList<>();
+            Mat firstCountourHierarchy = new Mat();//for findContours calculation. Do not touch.
+            Mat secondCountourHierarchy = new Mat();
+            Imgproc.findContours(src,firstCountour,firstCountourHierarchy, Imgproc.RETR_EXTERNAL , Imgproc.CHAIN_APPROX_SIMPLE);
+            Log.i(TAG, "doInBackground: size_contour: "+ firstCountour.size());
+             Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
+            MatOfPoint mopFirst;
+            MatOfPoint mopSecond;
+            mopFirst=firstCountour.get(0);
+            Point[] firstPoints = mopFirst.toArray();
+
+
+            List<MatOfPoint> first = new ArrayList<>();
+            List<MatOfPoint> second = new ArrayList<>();
+            first.add(firstCountour.get(0));
+            second.add(firstCountour.get(1));
+
+
+            Imgproc.drawContours(src,first,-1,new Scalar(0,0,255),-1);
+            Imgproc.drawContours(src,second,-1,new Scalar(255,0,0),-1);
+
+
+            //Imgproc.circle(src, center, 5, new Scalar(0, 0, 255), 4);
+
+
+            //Imgproc.ellipse(src, rect, new Scalar(0, 0, 255), 5);
+            //for enclosing rotated rectangle
+
+            // MatOfPoint mop = new MatOfPoint();
+            // Imgproc.boxPoints(rect, mop);
+            //Point points1[] = new Point[4];
+            // rect.points(points);
+
+            //if (rect.size.width < rect.size.width) {
+            //     rect.angle -= 90;
+            // } else if (rect.size.width > rect.size.width) {
+            //     rect.angle += 90;
+            //  }
+
+            //Log.i(TAG, "doInBackground: angle: " + rect.angle);
+            //Point center = new Point(src.cols() / 2, src.rows() / 2);
+
+            //Mat rotated = Imgproc.getRotationMatrix2D(center, rect.angle, 1.0);
+            //Imgproc.warpAffine(src, src, rotated, new Size(src.cols(), src.rows()), Imgproc.WARP_FILL_OUTLIERS);
+            //Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
+            //Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
+
+
+            /////////////////PCA part//////////////////////////////////////
+
+            /*
+            Mat nonZreo = new Mat(src.cols(),src.rows(),CvType.CV_8UC1);
+            Core.findNonZero(src,nonZreo);
+            List<Point> list = new ArrayList<>();
+            Converters.Mat_to_vector_Point2d(nonZreo,list);
+            int len = list.size();
+            Mat clone = src.clone();
+            Mat eigen = new Mat();
+
+            double avg_x=0;
+            double avg_y=0;
+            long counter=0;
+            long counter1=0;
+            double [] data = new double[2*len];
+            double [][] array = new double[2][12];
+            double [] x = {1,-1,1.5,2.05,6.1,3,-2,-2.5,-4,-4.5,-5.2,-3.2};
+            double [] y = {2,-1.8,3.2,4.05,11,5.8,-4.3,-5.2,-7.5,-9,-10,-5.8};
+           array[0] = x;
+           array[1] = y;
+
+            Mat array_data_mat = Mat.zeros(10,2,CvType.CV_64FC1);
+
+            Mat data_set = Mat.zeros(len,2,CvType.CV_64FC1);
+            Point a = new Point(list.get(0).x,list.get(0).y);
+            for(int i=0;i<len;i++) {
+                Point p = list.get(i);
+                counter+=p.x;
+                counter1+=p.y;
+                data[i] = p.x;
+                data[i+1] = p.y;
+
+            }
+            data_set.put(0,0,data);
+            array_data_mat.put(0,0,array[0]);
+            array_data_mat.put(0,1,array[1]);
+
+
+            counter = counter/len;
+            counter1 = counter1/len;
+            Mat self = new Mat();
+            Mat avgerage = new Mat();
+            avgerage.put(0,0,counter);
+            avgerage.put(0,1,counter);
+            //Scalar avg = Core.mean(data_set);
+            Scalar avg_test = Core.mean(array_data_mat);
+            Imgproc.cvtColor(src,src,Imgproc.COLOR_GRAY2RGB);
+            Imgproc.circle(src,new Point(counter,counter1),4,new Scalar(255,0,0),4);
+
+            Mat Avg = Mat.zeros(2,1, CvType.CV_64FC1);
+            Mat Avg_test = Mat.zeros(2,1, CvType.CV_64FC1);
+            Mat covar = Mat.zeros(2,2,CvType.CV_64FC1);
+            Core.calcCovarMatrix(array_data_mat,covar,Avg_test,Core.COVAR_COLS);
+            String res = "";
+            //Core.eigen(covar,self,eigen);
+            res = covar.dump();
+            double xVar = getVariance(array[0]);
+            double yVar = getVariance(array[1]);
+            double covariance = getCovariance(array[0],array[1]);
+            double[][] end = new double[2][2];
+            end[0][0] = xVar;
+            end[0][1] = covariance;
+            end[1][0] = covariance;
+            end[1][1] = yVar;
+            Mat cov = new Mat(2,2,CvType.CV_64FC1);
+           for(int i=0;i<2;i++){
+               for(int j=0;j<2;j++){
+                   cov.put(i,j,end[i][j]);
+               }
+           }
+            Core.eigen(cov,eigen);
+             res = cov.dump();
+            Log.i(TAG, "doInBackground: this is res\n "+res);
+            //res = eigen.dump();
+            Mat e = new Mat();
+            Mat v = new Mat();
+
+            res = e.dump();
+            Log.i(TAG, "doInBackground: this is covar\n "+res);
+            res = v.dump();
+            Log.i(TAG, "doInBackground: this is covar\n "+res);
+            //res = data_set.dump();
+
+            Log.i(TAG, "doInBackground: this is data_set\n "+res);
+            */
+
+
+            //Log.i(TAG, "doInBackground: src: channel " + src.channels() + " cols: " + src.cols() + ", rows: " + src.rows() + ", depth: " + src.depth());
+            // Log.i(TAG, "doInBackground: Affine: channel " + src.channels() + ", cols" + rotated.cols() + " rows: " + rotated.rows() + ", depth: " + rotated.depth());
+
+
+            //Mat result = Mat.zeros(src.cols(),src.rows(),CvType.CV_8UC1);//creating result matrix full of zeros at the begining
+            //src.copyTo(result,rotated);
+
+
+            //Imgproc.findContours(clone, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+            // Imgproc.cvtColor(clone, clone, Imgproc.COLOR_GRAY2BGR);
+            //Imgproc.drawContours(clone, contours, -1, new Scalar(255, 255, 255), 6);
+
+
+            //Imgproc.drawContours(src, contours, -1, new Scalar(255, 255, 255), 4);
+            /*Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
+            Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
+            Imgproc.findContours(src, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+            Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
+            Imgproc.drawContours(src, contours, -1, new Scalar(255, 255, 255), 4);*/
 
 
             //this section is for masking the segment the mole in full color
