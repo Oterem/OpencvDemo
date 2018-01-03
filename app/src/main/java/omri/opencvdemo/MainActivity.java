@@ -2,17 +2,11 @@ package omri.opencvdemo;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
-
-
-//import org.bytedeco.javacpp.opencv_core;
-import org.opencv.core.Core;
-
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-//import static org.bytedeco.javacpp.opencv_core.*;
 import android.database.Cursor;
 import android.graphics.Bitmap;
-
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -25,12 +19,8 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-
 import android.provider.MediaStore;
-
-import android.provider.Settings;
 import android.support.v4.content.FileProvider;
-
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -41,40 +31,32 @@ import android.view.WindowManager;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
-
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.bumptech.glide.Glide;
+import com.theartofdev.edmodo.cropper.CropImage;
+
+import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
-
 import org.opencv.core.Core;
-
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
-
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
-import org.opencv.core.Rect;
 import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-
-
 import org.opencv.imgproc.Imgproc;
-import org.opencv.android.OpenCVLoader;
-import org.opencv.imgproc.Moments;
-import org.opencv.utils.Converters;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-
-import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -85,15 +67,15 @@ import java.util.Locale;
 import java.util.Queue;
 import java.util.Vector;
 
-import com.bumptech.glide.Glide;
-import com.theartofdev.edmodo.cropper.CropImage;
+//import org.bytedeco.javacpp.opencv_core;
+//import static org.bytedeco.javacpp.opencv_core.*;
 
 public class MainActivity extends AppCompatActivity {
 
 
     private ImageView mImageView;
-    private Bitmap currentBitmap, calculatedBitmap, calculatedHistogram;
-    private ImageButton browse_btn, camera_btn, analyze_btn, histogram_btn;
+    private Bitmap currentBitmap, calculatedBitmap;
+    private ImageButton  analyze_btn, histogram_btn;
     private static final String TAG = "MainActivity";
     private String currentPhotoPath, currentGalleryPath;
     private static final int ACTION_IMAGE_CAPTURE = 1;
@@ -110,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
     private static int SCALING_DIVIDER = 2;
     private String imageName = "";
     private double diff = 0;
+    private boolean isImageSegmented = false;
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -144,6 +127,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+   
 
     /*----------------------------------------------------------------------------*/
 
@@ -202,8 +186,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
      /*----------------------------------------------------------------------------*/
-
-
+     public Uri getImageUri(Context inContext, Bitmap inImage) {
+         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+         inImage.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
+         String path = MediaStore.Images.Media.insertImage(inContext.getContentResolver(), inImage, "Title", null);
+         return Uri.parse(path);
+     }
+    /*----------------------------------------------------------------------------*/
     public String getRealPathFromURI(Uri uri) {
         String[] projection = {MediaStore.Images.Media.DATA};
         @SuppressWarnings("deprecation")
@@ -259,7 +248,7 @@ public class MainActivity extends AppCompatActivity {
                     try {
                         Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), resultUri);
                         currentBitmap = bm;
-                        setPic(bm, resultUri);
+                        setPic(null, resultUri);
                     } catch (Exception e) {
                         Toast.makeText(getApplicationContext(), R.string.crop_image_error, Toast.LENGTH_LONG).show();
                     }
@@ -414,6 +403,10 @@ public class MainActivity extends AppCompatActivity {
     private void setPic(Bitmap bm, Uri resultUri) {
 
         mImageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        if(bm!=null){
+            mImageView.setImageBitmap(bm);
+            return;
+        }
         mImageView = (ImageView) findViewById(R.id.pic1);
         Glide
                 .with(getBaseContext())
@@ -602,7 +595,6 @@ public class MainActivity extends AppCompatActivity {
             // alert.getWindow().getAttributes().x = 100;
             alert.getWindow().setGravity(Gravity.CENTER);
             alert.getWindow().getAttributes().y = -200;
-
             alert.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);//disable dimmed background
             alert.show();
             // calculatedBitmap = Bitmap.createBitmap(bitmap);//aliasing
@@ -618,7 +610,11 @@ public class MainActivity extends AppCompatActivity {
             myOptions.inScaled = false;
             myOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;// important
 
-            mImageView.setImageBitmap(bitmap);
+            //mImageView.setImageBitmap(bitmap);
+            calculatedBitmap = bitmap;
+            isImageSegmented=true;
+            setPic(bitmap,null);
+
             try {
                 //pictureFile = createImageFile();
                 pictureFile = getOutputSegmentFile();
@@ -744,7 +740,6 @@ public class MainActivity extends AppCompatActivity {
 
 
            /*create a mask with only the circle - to compare later with matchShapes*/
-
             /*Mat circle = new Mat(src.rows(), src.cols(), CvType.CV_8UC1);
             Imgproc.circle(circle, new Point(x, y), (int) maxRadius, new Scalar(255, 255, 255), 5);
             List<MatOfPoint> contours1 = new ArrayList<>();
@@ -755,17 +750,14 @@ public class MainActivity extends AppCompatActivity {
 
             /*calculate the difference between contour and a the minimal enclosing circle*/
 
+            //covert contour to matOfPoint
             MatOfPoint2f m = new MatOfPoint2f();
             contours.get(0).convertTo(m, CvType.CV_32F);
-
-            //double peri = Imgproc.arcLength(m, true);
-            // diff = (4 * Imgproc.contourArea(contours.get(0)) * Math.PI) / (peri * peri);
-            //diff = Imgproc.matchShapes(contours.get(0), contours1.get(0), Imgproc.CV_CONTOURS_MATCH_I2, 0)*1000;
-
-            Point center = new Point();
+            Point center;
             //for enclosing ellipse
             RotatedRect rect = Imgproc.fitEllipse(m);
             center = rect.center;
+            //for finding 4 points of rect
             double longSide, shortSide;
             if (rect.size.width > rect.size.height) {
                 longSide = rect.size.width;
@@ -774,18 +766,17 @@ public class MainActivity extends AppCompatActivity {
                 longSide = rect.size.height;
                 shortSide = rect.size.width;
             }
-
+            /*These vectors will store the points on the width and height of the bounding rectangle*/
             Vector<Point> vecOfShortPoints = new Vector<>();
             Vector<Point> vecOfLongPoints = new Vector<>();
-
             //Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
             Point[] rectPoints = new Point[4];
             rect.points(rectPoints);
-            Point onLong1,onLong2,onShort1,onShort2;
             Point iterA,iterB;
+
             for(int i=0;i<4;i++){
                 for(int j=i;j<4;j++){
-                    double distance=0;
+                    double distance;
                     iterA = rectPoints[i];
                     iterB=rectPoints[j];
                     distance = calcDistance(iterA,iterB);
@@ -808,166 +799,29 @@ public class MainActivity extends AppCompatActivity {
             }
 
 
+            //drawing the axes
+            Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
+            Imgproc.line(src,vecOfLongPoints.firstElement(),vecOfLongPoints.lastElement(),new Scalar(0, 0,255), 5);
+            Imgproc.line(src,vecOfShortPoints.firstElement(),vecOfShortPoints.lastElement(),new Scalar(255, 0,0 ), 5);
+            Imgproc.circle(src,center,4,new Scalar(0, 255,0 ),5);
+            //for dividing main contour
 
-            Imgproc.line(src,vecOfLongPoints.firstElement(),vecOfLongPoints.lastElement(),new Scalar(0, 0,0 ), 5);
-            //Imgproc.line(src,vecOfShortPoints.firstElement(),vecOfShortPoints.lastElement(),new Scalar(255, 0,0 ), 4);
-            List<MatOfPoint> firstCountour = new ArrayList<>();
-            List<MatOfPoint> secondCountour = new ArrayList<>();
+            /*This section for dividing the condoturs into two sub constours*/
+           /* List<MatOfPoint> firstCountour = new ArrayList<>();
             Mat firstCountourHierarchy = new Mat();//for findContours calculation. Do not touch.
-            Mat secondCountourHierarchy = new Mat();
             Imgproc.findContours(src,firstCountour,firstCountourHierarchy, Imgproc.RETR_EXTERNAL , Imgproc.CHAIN_APPROX_SIMPLE);
             Log.i(TAG, "doInBackground: size_contour: "+ firstCountour.size());
-             Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
+            Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
             MatOfPoint mopFirst;
             MatOfPoint mopSecond;
             mopFirst=firstCountour.get(0);
-            Point[] firstPoints = mopFirst.toArray();
-
-
             List<MatOfPoint> first = new ArrayList<>();
             List<MatOfPoint> second = new ArrayList<>();
             first.add(firstCountour.get(0));
             second.add(firstCountour.get(1));
-
-
             Imgproc.drawContours(src,first,-1,new Scalar(0,0,255),-1);
             Imgproc.drawContours(src,second,-1,new Scalar(255,0,0),-1);
-
-
-            //Imgproc.circle(src, center, 5, new Scalar(0, 0, 255), 4);
-
-
-            //Imgproc.ellipse(src, rect, new Scalar(0, 0, 255), 5);
-            //for enclosing rotated rectangle
-
-            // MatOfPoint mop = new MatOfPoint();
-            // Imgproc.boxPoints(rect, mop);
-            //Point points1[] = new Point[4];
-            // rect.points(points);
-
-            //if (rect.size.width < rect.size.width) {
-            //     rect.angle -= 90;
-            // } else if (rect.size.width > rect.size.width) {
-            //     rect.angle += 90;
-            //  }
-
-            //Log.i(TAG, "doInBackground: angle: " + rect.angle);
-            //Point center = new Point(src.cols() / 2, src.rows() / 2);
-
-            //Mat rotated = Imgproc.getRotationMatrix2D(center, rect.angle, 1.0);
-            //Imgproc.warpAffine(src, src, rotated, new Size(src.cols(), src.rows()), Imgproc.WARP_FILL_OUTLIERS);
-            //Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
-            //Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
-
-
-            /////////////////PCA part//////////////////////////////////////
-
-            /*
-            Mat nonZreo = new Mat(src.cols(),src.rows(),CvType.CV_8UC1);
-            Core.findNonZero(src,nonZreo);
-            List<Point> list = new ArrayList<>();
-            Converters.Mat_to_vector_Point2d(nonZreo,list);
-            int len = list.size();
-            Mat clone = src.clone();
-            Mat eigen = new Mat();
-
-            double avg_x=0;
-            double avg_y=0;
-            long counter=0;
-            long counter1=0;
-            double [] data = new double[2*len];
-            double [][] array = new double[2][12];
-            double [] x = {1,-1,1.5,2.05,6.1,3,-2,-2.5,-4,-4.5,-5.2,-3.2};
-            double [] y = {2,-1.8,3.2,4.05,11,5.8,-4.3,-5.2,-7.5,-9,-10,-5.8};
-           array[0] = x;
-           array[1] = y;
-
-            Mat array_data_mat = Mat.zeros(10,2,CvType.CV_64FC1);
-
-            Mat data_set = Mat.zeros(len,2,CvType.CV_64FC1);
-            Point a = new Point(list.get(0).x,list.get(0).y);
-            for(int i=0;i<len;i++) {
-                Point p = list.get(i);
-                counter+=p.x;
-                counter1+=p.y;
-                data[i] = p.x;
-                data[i+1] = p.y;
-
-            }
-            data_set.put(0,0,data);
-            array_data_mat.put(0,0,array[0]);
-            array_data_mat.put(0,1,array[1]);
-
-
-            counter = counter/len;
-            counter1 = counter1/len;
-            Mat self = new Mat();
-            Mat avgerage = new Mat();
-            avgerage.put(0,0,counter);
-            avgerage.put(0,1,counter);
-            //Scalar avg = Core.mean(data_set);
-            Scalar avg_test = Core.mean(array_data_mat);
-            Imgproc.cvtColor(src,src,Imgproc.COLOR_GRAY2RGB);
-            Imgproc.circle(src,new Point(counter,counter1),4,new Scalar(255,0,0),4);
-
-            Mat Avg = Mat.zeros(2,1, CvType.CV_64FC1);
-            Mat Avg_test = Mat.zeros(2,1, CvType.CV_64FC1);
-            Mat covar = Mat.zeros(2,2,CvType.CV_64FC1);
-            Core.calcCovarMatrix(array_data_mat,covar,Avg_test,Core.COVAR_COLS);
-            String res = "";
-            //Core.eigen(covar,self,eigen);
-            res = covar.dump();
-            double xVar = getVariance(array[0]);
-            double yVar = getVariance(array[1]);
-            double covariance = getCovariance(array[0],array[1]);
-            double[][] end = new double[2][2];
-            end[0][0] = xVar;
-            end[0][1] = covariance;
-            end[1][0] = covariance;
-            end[1][1] = yVar;
-            Mat cov = new Mat(2,2,CvType.CV_64FC1);
-           for(int i=0;i<2;i++){
-               for(int j=0;j<2;j++){
-                   cov.put(i,j,end[i][j]);
-               }
-           }
-            Core.eigen(cov,eigen);
-             res = cov.dump();
-            Log.i(TAG, "doInBackground: this is res\n "+res);
-            //res = eigen.dump();
-            Mat e = new Mat();
-            Mat v = new Mat();
-
-            res = e.dump();
-            Log.i(TAG, "doInBackground: this is covar\n "+res);
-            res = v.dump();
-            Log.i(TAG, "doInBackground: this is covar\n "+res);
-            //res = data_set.dump();
-
-            Log.i(TAG, "doInBackground: this is data_set\n "+res);
             */
-
-
-            //Log.i(TAG, "doInBackground: src: channel " + src.channels() + " cols: " + src.cols() + ", rows: " + src.rows() + ", depth: " + src.depth());
-            // Log.i(TAG, "doInBackground: Affine: channel " + src.channels() + ", cols" + rotated.cols() + " rows: " + rotated.rows() + ", depth: " + rotated.depth());
-
-
-            //Mat result = Mat.zeros(src.cols(),src.rows(),CvType.CV_8UC1);//creating result matrix full of zeros at the begining
-            //src.copyTo(result,rotated);
-
-
-            //Imgproc.findContours(clone, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
-            // Imgproc.cvtColor(clone, clone, Imgproc.COLOR_GRAY2BGR);
-            //Imgproc.drawContours(clone, contours, -1, new Scalar(255, 255, 255), 6);
-
-
-            //Imgproc.drawContours(src, contours, -1, new Scalar(255, 255, 255), 4);
-            /*Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
-            Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
-            Imgproc.findContours(src, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
-            Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
-            Imgproc.drawContours(src, contours, -1, new Scalar(255, 255, 255), 4);*/
-
 
             //this section is for masking the segment the mole in full color
             /*
