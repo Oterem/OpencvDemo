@@ -697,8 +697,8 @@ public class MainActivity extends AppCompatActivity {
             int red = android.graphics.Color.rgb(255, 255, 255);
             regionGrowing(flooded, seed, (int) threshold, red);
             Utils.bitmapToMat(flooded, src);
-            Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
-            Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
+            //Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
+            //Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
 
 
 
@@ -795,6 +795,7 @@ public class MainActivity extends AppCompatActivity {
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
             Imgproc.cvtColor(src,src,Imgproc.COLOR_BGR2GRAY);
+            Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
 
             /*finding the main contour*/
 
