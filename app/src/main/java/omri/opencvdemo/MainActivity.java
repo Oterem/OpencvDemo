@@ -464,10 +464,7 @@ public class MainActivity extends AppCompatActivity {
                     + getApplicationContext().getPackageName()
                     + "/Files/SegmentFiles");
 
-//            Log.i(TAG, "" + Environment.getExternalStorageDirectory()
-//                    + "/Android/data/"
-//                    + getApplicationContext().getPackageName()
-//                    + "/Files");
+
 
             // This location works best if you want the created images to be shared
             // between applications and persist after your app has been uninstalled.
@@ -748,11 +745,23 @@ public class MainActivity extends AppCompatActivity {
             Imgproc.findContours(circle, contours1, hierarchy1, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_NONE);
             */
 
+            /*Finding index of biggest contour*/
+            int index=0;
+            double max=0;
+            for (int i=0;i<contours.size();i++){
+                double area =Imgproc.contourArea(contours.get(i));
+                if(area>max){
+                    max = area;
+                    index=i;
+                }
+            }
+
+
             /*calculate the difference between contour and a the minimal enclosing circle*/
 
             //covert contour to matOfPoint
             MatOfPoint2f m = new MatOfPoint2f();
-            contours.get(0).convertTo(m, CvType.CV_32F);
+            contours.get(index).convertTo(m, CvType.CV_32F);
             Point center;
             //for enclosing ellipse
             RotatedRect rect = Imgproc.fitEllipse(m);
@@ -766,12 +775,16 @@ public class MainActivity extends AppCompatActivity {
                 longSide = rect.size.height;
                 shortSide = rect.size.width;
             }
+
+
             /*These vectors will store the points on the width and height of the bounding rectangle*/
             Vector<Point> vecOfShortPoints = new Vector<>();
             Vector<Point> vecOfLongPoints = new Vector<>();
             //Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
             Point[] rectPoints = new Point[4];
+
             rect.points(rectPoints);
+            Log.i(TAG, "doInBackground: size: "+rectPoints.length);
             Point iterA,iterB;
 
             for(int i=0;i<4;i++){
@@ -799,11 +812,14 @@ public class MainActivity extends AppCompatActivity {
             }
 
 
+
             //drawing the axes
+
             Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
             Imgproc.line(src,vecOfLongPoints.firstElement(),vecOfLongPoints.lastElement(),new Scalar(0, 0,255), 5);
             Imgproc.line(src,vecOfShortPoints.firstElement(),vecOfShortPoints.lastElement(),new Scalar(255, 0,0 ), 5);
             Imgproc.circle(src,center,4,new Scalar(0, 255,0 ),5);
+
             //for dividing main contour
 
             /*This section for dividing the condoturs into two sub constours*/
