@@ -307,7 +307,7 @@ public class MainActivity extends AppCompatActivity {
                         b.setEnabled(false);
 
                         //uncomment this section to process image
-                        MyAsyncTask work = new MyAsyncTask();
+                        SegmentAsyncTask work = new SegmentAsyncTask();
                         calculatedBitmap = currentBitmap;
                         Bitmap[] array = {calculatedBitmap, bitmap};
                         work.execute(array);
@@ -443,10 +443,10 @@ public class MainActivity extends AppCompatActivity {
     /*----------------------------------------------------------------------------*/
 
     /**
-     * The MyAsyncTask class implements the AsyncTask class.
+     * The SegmentAsyncTask class implements the AsyncTask class.
      * It is used for a "heavy" image process
      */
-    private class MyAsyncTask extends AsyncTask<Bitmap, Integer, Bitmap> {
+    private class SegmentAsyncTask extends AsyncTask<Bitmap, Integer, Bitmap> {
 
 
         private Bitmap bm;
@@ -561,7 +561,7 @@ public class MainActivity extends AppCompatActivity {
          * After image process, this method stops the progress bar and present the processed image
          */
         @Override
-        protected void onPostExecute(Bitmap bitmap) {
+        protected void onPostExecute(final Bitmap bitmap) {
 
             pb.setVisibility(View.INVISIBLE);
 
@@ -579,7 +579,13 @@ public class MainActivity extends AppCompatActivity {
             /*Validation mechanism*/
             final AlertDialog.Builder alertDialog = new AlertDialog.Builder(MainActivity.this)
                     .setMessage(MainActivity.this.getString(R.string.validate_segment))
-                    .setPositiveButton("YES", null)
+                    .setPositiveButton("YES", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            FeaturesAsyncTask features = new FeaturesAsyncTask();
+                            features.execute(bitmap);
+                        }
+                    })
                     .setNegativeButton("NO", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
@@ -639,7 +645,7 @@ public class MainActivity extends AppCompatActivity {
 
         /*-----------------------------------------------------*/
 
-        protected double getMean(double[] array) {
+        private double getMean(double[] array) {
             double sum = 0.0;
             for (double val : array) {
                 sum += val;
@@ -694,8 +700,101 @@ public class MainActivity extends AppCompatActivity {
             Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2GRAY);
             Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
 
+
+
+           /*create a mask with only the circle - to compare later with matchShapes*/
+            /*Mat circle = new Mat(src.rows(), src.cols(), CvType.CV_8UC1);
+            Imgproc.circle(circle, new Point(x, y), (int) maxRadius, new Scalar(255, 255, 255), 5);
+            List<MatOfPoint> contours1 = new ArrayList<>();
+            Mat hierarchy1 = new Mat();//for findContours calculation. Do not touch.
+            Imgproc.threshold(circle, circle, 254, 254, Imgproc.THRESH_BINARY);
+            Imgproc.findContours(circle, contours1, hierarchy1, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_NONE);
+            */
+
+
+
+
+
+
+
+
+            //this section is for masking the segment the mole in full color
+            /*
+            Mat original = new  Mat(1,1,CvType.CV_8UC3);//this is the original colored image
+            Utils.bitmapToMat(bm,original);//loading original colored image to the matrix
+            Imgproc.resize(original,original,new Size(src.width(),src.height()));//adapting and resizing the original to be same as src matrix dimentions
+            Mat result = Mat.zeros(bm.getWidth(),bm.getHeight(),CvType.CV_8UC3);//creating result matrix full of zeros at the begining
+            original.copyTo(result,src);//perform copy from original to result and using src matrix as mask
+            */
+
+
+            Bitmap bm = Bitmap.createBitmap(src.cols(), src.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(src, bm);
+
+            return bm;
+        }
+      /*----------------------------------------------------------*/
+
+    }
+
+    private class FeaturesAsyncTask extends AsyncTask<Bitmap, Void, Bitmap>
+    {
+
+        private Bitmap bm;
+        /**
+         * Set the view before image process.
+         */
+        @Override
+        protected void onPreExecute() {
+            int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
+            View v = findViewById(R.id.my_layout);
+            v.setAlpha(.5f);
+            pb.setVisibility(View.VISIBLE);
+            pb.animate().setDuration(shortAnimTime).alpha(
+                    1).setListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    pb.setVisibility(View.VISIBLE);
+
+                }
+            });
+        }
+
+
+        private double calcDistance(Point a, Point b){
+
+            double x = (a.x-b.x)*(a.x-b.x);
+            double y = (a.y-b.y)*(a.y-b.y);
+            return Math.sqrt(x+y);
+        }
+
+        @Override
+        protected void onPostExecute(final Bitmap bitmap) {
+
+            pb.setVisibility(View.INVISIBLE);
+
+            pb.animate().setDuration(0).alpha(
+                    0).setListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    pb.setVisibility(View.INVISIBLE);
+
+                }
+            });
+            View v = findViewById(R.id.my_layout);
+            v.setAlpha(1f);
+            setPic(bitmap,null);
+        }
+
+        @Override
+        protected Bitmap doInBackground(Bitmap... bitmaps) {
+
+            bm = bitmaps[0];
+            Mat src = new Mat();
+            Utils.bitmapToMat(bm,src);
             List<MatOfPoint> contours = new ArrayList<>();
             Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
+            Imgproc.cvtColor(src,src,Imgproc.COLOR_BGR2GRAY);
 
             /*finding the main contour*/
 
@@ -856,8 +955,13 @@ public class MainActivity extends AppCompatActivity {
             //  cloneDest.release();
             //  hierarchy.release();
             return bm;
+
         }
-      /*----------------------------------------------------------*/
+
+
+
+
+
 
     }
 
