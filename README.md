@@ -26,9 +26,9 @@ We're trying to use the best tools and practices in order to produce a quality e
 
 ## Software Design
 [Architecture](https://raw.githubusercontent.com/Oterem/moleAgnose/master/Material/Pics/Architecture.jpg)<br/>
-[Class diagram](https://github.com/Oterem/moleAgnose/blob/master/Material/Pics/UML%20-%20Class%20diagram.PNG)<br/>
+[Class diagram](https://github.com/Oterem/moleAgnose/blob/master/Material/Pics/uml.png)<br/>
 [State charts](https://github.com/Oterem/moleAgnose/blob/master/Material/Pics/state%20charts.png) <br/>
-[Sequence diagram](https://github.com/Oterem/moleAgnose/blob/master/Material/Pics/sequence%20diagram.png)
+[Sequence diagram](https://github.com/Oterem/moleAgnose/blob/master/Material/Pics/alpha%20stage%20sequnce%20diagram.png)
 
 
 
