@@ -12,31 +12,29 @@
 
     <ImageButton
         android:id="@+id/imageButton"
-        android:layout_width="80dp"
-        android:layout_height="80dp"
+        android:layout_width="70dp"
+        android:layout_height="70dp"
 
 
+        android:layout_marginBottom="8dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="8dp"
+
+        android:layout_marginTop="16dp"
         android:adjustViewBounds="true"
         android:background="@drawable/rounded_corners"
-        android:contentDescription="@string/launching_camera"
 
+
+        android:contentDescription="@string/launching_camera"
         android:onClick="launchCamera"
         android:scaleType="fitXY"
         android:src="@drawable/camera_icon"
-
-
-
-
-        app:layout_constraintTop_toTopOf="parent"
-        android:layout_marginLeft="16dp"
-        app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        android:layout_marginBottom="8dp"
-        app:layout_constraintVertical_bias="0.0"
-        android:layout_marginTop="16dp"
-        android:layout_marginRight="8dp"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintHorizontal_bias="0.0" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0" />
 
     <ImageView
         android:id="@+id/pic1"
@@ -62,51 +60,51 @@
 
     <ImageButton
         android:id="@+id/browse_btn"
-        android:layout_width="80dp"
-        android:layout_height="80dp"
+        android:layout_width="70dp"
+        android:layout_height="70dp"
+        android:layout_alignStart="@+id/cropImageView"
+        android:layout_below="@+id/textView"
+        android:layout_marginBottom="8dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="8dp"
+        android:layout_marginTop="16dp"
         android:background="@drawable/rounded_corners"
         android:contentDescription="@string/browsing_gallery"
         android:cropToPadding="false"
         android:onClick="onBrowseClick"
         android:scaleType="fitXY"
         android:src="@drawable/gallery_icon"
-        android:layout_below="@+id/textView"
-        android:layout_alignStart="@+id/cropImageView"
-        app:layout_constraintLeft_toRightOf="@+id/imageButton"
-        android:layout_marginLeft="16dp"
-        app:layout_constraintTop_toTopOf="parent"
-        android:layout_marginTop="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        android:layout_marginBottom="8dp"
-        app:layout_constraintVertical_bias="0.0"
-        android:layout_marginRight="8dp"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintLeft_toRightOf="@+id/imageButton"
         app:layout_constraintRight_toRightOf="@+id/hostogram_btn"
-        app:layout_constraintHorizontal_bias="0.0" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0" />
 
     <ImageButton
         android:id="@+id/analyze_btn"
-        android:layout_width="80dp"
-        android:layout_height="80dp"
+        android:layout_width="70dp"
+        android:layout_height="70dp"
+        android:layout_alignTop="@+id/hostogram_btn"
+        android:layout_marginBottom="8dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="8dp"
+        android:layout_marginTop="16dp"
+        android:layout_toEndOf="@+id/cropImageView"
+
         android:background="@drawable/rounded_corners"
         android:contentDescription="@string/image_proccess"
         android:elevation="14dp"
+
         android:onClick="onAnalyzeClick"
         android:scaleType="fitXY"
         android:src="@drawable/analyze_icon"
-
-        android:layout_alignTop="@+id/hostogram_btn"
-        android:layout_toEndOf="@+id/cropImageView"
-        app:layout_constraintTop_toTopOf="parent"
-
-        android:layout_marginTop="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        android:layout_marginBottom="8dp"
-        app:layout_constraintVertical_bias="0.0"
-        android:layout_marginLeft="24dp"
+        app:layout_constraintHorizontal_bias="0.646"
         app:layout_constraintLeft_toLeftOf="parent"
-        android:layout_marginRight="0dp"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintHorizontal_bias="0.615" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0" />
 
     <com.theartofdev.edmodo.cropper.CropImageView xmlns:custom="http://schemas.android.com/apk/res-auto"
         android:id="@+id/cropImageView"
@@ -143,28 +141,28 @@
 
     <ImageButton
         android:id="@+id/hostogram_btn"
-        android:layout_width="80dp"
-        android:layout_height="80dp"
+        android:layout_width="70dp"
+        android:layout_height="70dp"
 
+        android:layout_below="@+id/textView"
+        android:layout_marginBottom="8dp"
+        android:layout_marginLeft="8dp"
+        android:layout_marginRight="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_toStartOf="@+id/analyze_btn"
         android:background="@drawable/rounded_corners"
         android:contentDescription="@string/calculating_histogram"
         android:cropToPadding="false"
+
+
         android:onClick="onHistogramClicked"
         android:scaleType="fitXY"
         android:src="@drawable/histogram_icon"
-        android:layout_below="@+id/textView"
-        android:layout_toStartOf="@+id/analyze_btn"
-        app:layout_constraintTop_toTopOf="parent"
-
-
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintLeft_toRightOf="@+id/analyze_btn"
-        android:layout_marginLeft="8dp"
-        app:layout_constraintHorizontal_bias="1.0"
-        android:layout_marginTop="16dp"
-        android:layout_marginRight="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        android:layout_marginBottom="8dp"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintLeft_toRightOf="@+id/analyze_btn"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.0" />
 
     <TextView
