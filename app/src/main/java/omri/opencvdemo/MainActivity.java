@@ -1,7 +1,10 @@
 package omri.opencvdemo;
 
+import android.provider.Settings.Secure;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -20,9 +23,11 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.support.v4.app.NotificationManagerCompat;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.app.NotificationCompat;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -34,6 +39,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.amazonaws.services.s3.AmazonS3Client;
 import com.bumptech.glide.Glide;
 import com.theartofdev.edmodo.cropper.CropImage;
 
@@ -66,7 +72,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Queue;
 import java.util.Vector;
-
+import com.amazonaws.mobileconnectors.s3.transferutility.*;
+import com.amazonaws.mobile.client.*;
 //import org.bytedeco.javacpp.opencv_core;
 //import static org.bytedeco.javacpp.opencv_core.*;
 
@@ -75,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
 
     private ImageView mImageView;
     private Bitmap currentBitmap, calculatedBitmap;
-    private ImageButton  analyze_btn, histogram_btn;
+    private ImageButton analyze_btn, histogram_btn;
     private static final String TAG = "MainActivity";
     private String currentPhotoPath, currentGalleryPath;
     private static final int ACTION_IMAGE_CAPTURE = 1;
@@ -93,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
     private String imageName = "";
     private double diff = 0;
     private boolean isImageSegmented = false;
+    private Uri currentUri;
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -116,8 +124,9 @@ public class MainActivity extends AppCompatActivity {
         mImageView = (ImageView) findViewById(R.id.pic1);
         analyze_btn = (ImageButton) findViewById(R.id.analyze_btn);
         analyze_btn.setEnabled(false);
-        histogram_btn = (ImageButton) findViewById(R.id.hostogram_btn);
-        histogram_btn.setEnabled(false);
+//        histogram_btn = (ImageButton) findViewById(R.id.hostogram_btn);
+//        histogram_btn.setEnabled(false);
+        AWSMobileClient.getInstance().initialize(this).execute();
 
 
         //handling permissions in case of SDK >=23
@@ -127,7 +136,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-   
+
+
+
+
 
     /*----------------------------------------------------------------------------*/
 
@@ -185,23 +197,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-     /*----------------------------------------------------------------------------*/
-     public Uri getImageUri(Context inContext, Bitmap inImage) {
-         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-         inImage.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
-         String path = MediaStore.Images.Media.insertImage(inContext.getContentResolver(), inImage, "Title", null);
-         return Uri.parse(path);
-     }
     /*----------------------------------------------------------------------------*/
-    public String getRealPathFromURI(Uri uri) {
-        String[] projection = {MediaStore.Images.Media.DATA};
-        @SuppressWarnings("deprecation")
-        Cursor cursor = managedQuery(uri, projection, null, null, null);
-        int column_index = cursor
-                .getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
-        cursor.moveToFirst();
-        return cursor.getString(column_index);
+    public Uri getImageUri(Context inContext, Bitmap inImage) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        inImage.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
+
+        String path = MediaStore.Images.Media.insertImage(inContext.getContentResolver(), inImage, "Title", null);
+        return Uri.parse(path);
     }
+
 /*-------------------------------------------------------------------*/
 
     /**
@@ -214,7 +218,7 @@ public class MainActivity extends AppCompatActivity {
 
         if (resultCode == RESULT_OK) {
 
-            histogram_btn.setEnabled(true);
+            //histogram_btn.setEnabled(true);
 
 
             switch (requestCode) {
@@ -232,7 +236,7 @@ public class MainActivity extends AppCompatActivity {
                 case ACTION_GET_CONTENT: //in case user is loading picture from gallery
                     try {
                         photoURI = data.getData();
-                        imageName = getRealPathFromURI(photoURI);
+                        imageName = getPath(getApplicationContext(), photoURI);
                         imageName = imageName.replaceFirst(".*/(\\w+).*", "$1");
                         CropImage.activity(photoURI).start(this);
                         //setPic(currentBitmap, photoURI);
@@ -244,6 +248,7 @@ public class MainActivity extends AppCompatActivity {
                 case CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE: //cropping image
                     CropImage.ActivityResult result = CropImage.getActivityResult(data);
                     Uri resultUri = result.getUri();
+                    currentUri = resultUri;
                     photoURI = resultUri;
                     try {
                         Bitmap bm = MediaStore.Images.Media.getBitmap(this.getContentResolver(), resultUri);
@@ -273,6 +278,7 @@ public class MainActivity extends AppCompatActivity {
 
         //setting a listener on imageview for sampling points
         mImageView.setOnTouchListener(new View.OnTouchListener() {
+
             @Override
             public boolean onTouch(View view, MotionEvent motionEvent) {
 
@@ -403,7 +409,7 @@ public class MainActivity extends AppCompatActivity {
     private void setPic(Bitmap bm, Uri resultUri) {
 
         mImageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        if(bm!=null){
+        if (bm != null) {
             mImageView.setImageBitmap(bm);
             return;
         }
@@ -413,6 +419,12 @@ public class MainActivity extends AppCompatActivity {
                 .asBitmap().load(resultUri)
                 .into(mImageView);
         analyze_btn.setEnabled(true);
+    }
+
+    String parseImageName(String path) {
+        String[] tokens = path.split("/");
+        String name = tokens[tokens.length - 1];
+        return name;
     }
 
 
@@ -440,13 +452,68 @@ public class MainActivity extends AppCompatActivity {
 
 
     }
+
+    public static String getPath(final Context context, final Uri uri) {
+        final boolean isKitKat = Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
+        Log.i("URI", uri + "");
+        String result = uri + "";
+        // DocumentProvider
+        //  if (isKitKat && DocumentsContract.isDocumentUri(context, uri)) {
+        if (isKitKat && (result.contains("media.documents"))) {
+            String[] ary = result.split("/");
+            int length = ary.length;
+            String imgary = ary[length - 1];
+            final String[] dat = imgary.split("%3A");
+            final String docId = dat[1];
+            final String type = dat[0];
+            Uri contentUri = null;
+            if ("image".equals(type)) {
+                contentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+            } else if ("video".equals(type)) {
+            } else if ("audio".equals(type)) {
+            }
+            final String selection = "_id=?";
+            final String[] selectionArgs = new String[]{
+                    dat[1]
+            };
+            return getDataColumn(context, contentUri, selection, selectionArgs);
+        } else if ("content".equalsIgnoreCase(uri.getScheme())) {
+            return getDataColumn(context, uri, null, null);
+        }
+        // File
+        else if ("file".equalsIgnoreCase(uri.getScheme())) {
+            return uri.getPath();
+        }
+        return null;
+    }
+
+    public static String getDataColumn(Context context, Uri uri, String selection, String[] selectionArgs) {
+        Cursor cursor = null;
+        final String column = "_data";
+        final String[] projection = {
+                column
+        };
+        try {
+            cursor = context.getContentResolver().query(uri, projection, selection, selectionArgs, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                final int column_index = cursor.getColumnIndexOrThrow(column);
+                return cursor.getString(column_index);
+            }
+        } finally {
+            if (cursor != null)
+                cursor.close();
+        }
+        return null;
+    }
+
+
     /*----------------------------------------------------------------------------*/
 
     /**
      * The SegmentAsyncTask class implements the AsyncTask class.
      * It is used for a "heavy" image process
      */
-    private class SegmentAsyncTask extends AsyncTask<Bitmap, Integer, Bitmap> {
+    public class SegmentAsyncTask extends AsyncTask<Bitmap, Integer, Bitmap> {
 
 
         private Bitmap bm;
@@ -463,7 +530,6 @@ public class MainActivity extends AppCompatActivity {
                     + "/Android/data/"
                     + getApplicationContext().getPackageName()
                     + "/Files/SegmentFiles");
-
 
 
             // This location works best if you want the created images to be shared
@@ -554,6 +620,8 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         }
+
+
         /*----------------------------------------------------------*/
 
 
@@ -582,13 +650,19 @@ public class MainActivity extends AppCompatActivity {
                     .setPositiveButton("YES", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
-                            FeaturesAsyncTask features = new FeaturesAsyncTask();
-                            features.execute(bitmap);
+
+
+                            String path = getPath(getApplicationContext(), currentUri);
+                            uploadWithTransferUtility(path);
+//                            UploadToS3 job = new UploadToS3();
+//                            job.execute(currentUri);
+
                         }
                     })
                     .setNegativeButton("NO", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
+
                             setPic(null, photoURI);
                             getBlobCoordinates();
                         }
@@ -615,8 +689,8 @@ public class MainActivity extends AppCompatActivity {
 
             //mImageView.setImageBitmap(bitmap);
             calculatedBitmap = bitmap;
-            isImageSegmented=true;
-            setPic(bitmap,null);
+            isImageSegmented = true;
+            setPic(bitmap, null);
 
             try {
                 //pictureFile = createImageFile();
@@ -664,11 +738,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         /*-----------------------------------------------------*/
-        protected double calcDistance(Point a, Point b){
+        protected double calcDistance(Point a, Point b) {
 
-            double x = (a.x-b.x)*(a.x-b.x);
-            double y = (a.y-b.y)*(a.y-b.y);
-            return Math.sqrt(x+y);
+            double x = (a.x - b.x) * (a.x - b.x);
+            double y = (a.y - b.y) * (a.y - b.y);
+            return Math.sqrt(x + y);
         }
 
         /*-----------------------------------------------------*/
@@ -712,12 +786,6 @@ public class MainActivity extends AppCompatActivity {
             */
 
 
-
-
-
-
-
-
             //this section is for masking the segment the mole in full color
             /*
             Mat original = new  Mat(1,1,CvType.CV_8UC3);//this is the original colored image
@@ -730,6 +798,7 @@ public class MainActivity extends AppCompatActivity {
 
             Bitmap bm = Bitmap.createBitmap(src.cols(), src.rows(), Bitmap.Config.ARGB_8888);
             Utils.matToBitmap(src, bm);
+
 
             return bm;
         }
@@ -737,288 +806,119 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private class FeaturesAsyncTask extends AsyncTask<Bitmap, Void, Bitmap>
-    {
+    public void uploadWithTransferUtility(String path) {
+         String android_id = Secure.getString(getBaseContext().getContentResolver(),
+                Secure.ANDROID_ID);
+        TransferUtility transferUtility =
+                TransferUtility.builder()
+                        .context(getApplicationContext())
+                        .awsConfiguration(AWSMobileClient.getInstance().getConfiguration())
+                        .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
+                        .build();
 
-        private Bitmap bm;
-        /**
-         * Set the view before image process.
-         */
-        @Override
-        protected void onPreExecute() {
-            int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
-            View v = findViewById(R.id.my_layout);
-            v.setAlpha(.5f);
-            pb.setVisibility(View.VISIBLE);
-            pb.animate().setDuration(shortAnimTime).alpha(
-                    1).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    pb.setVisibility(View.VISIBLE);
-
-                }
-            });
-        }
+        TransferObserver uploadObserver =
+                transferUtility.upload(
+                        android_id+"_"+imageName+".jpg",
+                        new File(path));
 
 
-        private double calcDistance(Point a, Point b){
-
-            double x = (a.x-b.x)*(a.x-b.x);
-            double y = (a.y-b.y)*(a.y-b.y);
-            return Math.sqrt(x+y);
-        }
-
-        @Override
-        protected void onPostExecute(final Bitmap bitmap) {
-
-            pb.setVisibility(View.INVISIBLE);
-
-            pb.animate().setDuration(0).alpha(
-                    0).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    pb.setVisibility(View.INVISIBLE);
-
-                }
-            });
-            View v = findViewById(R.id.my_layout);
-            v.setAlpha(1f);
-            setPic(bitmap,null);
-        }
-
-        @Override
-        protected Bitmap doInBackground(Bitmap... bitmaps) {
-
-            bm = bitmaps[0];
-            Mat src = new Mat();
-            Utils.bitmapToMat(bm,src);
-            List<MatOfPoint> contours = new ArrayList<>();
-            Mat hierarchy = new Mat();//for findContours calculation. Do not touch.
-            Imgproc.cvtColor(src,src,Imgproc.COLOR_BGR2GRAY);
-            Imgproc.threshold(src, src, 254, 254, Imgproc.THRESH_BINARY);
-
-            /*finding the main contour*/
-
-            Imgproc.findContours(src, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
-            //Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
-            // Imgproc.drawContours(src, contours, -1, new Scalar(255, 0, 0), 6);
-
-            /*draw centroid on contour*/
-            /*
-            List<Moments> mu = new ArrayList<>(contours.size());
-            Point center = new Point();
-            int x = 0;
-            int y = 0;
-            double s = 0;
-            for (int i = 0; i < contours.size(); i++) {
-                mu.add(i, Imgproc.moments(contours.get(i), false));
-                Moments p = mu.get(i);
-                x = (int) (p.get_m10() / p.get_m00());
-                y = (int) (p.get_m01() / p.get_m00());
-
-                s = 0.5 * Math.atan((2 * (p.get_m11())) / ((p.get_m20()) - (p.get_m02())));
-                Imgproc.circle(src, new Point(x, y), 10, new Scalar(0, 0, 255), 5);
-            }
-            center.x = x;
-            center.y = y;
+        // Attach a listener to the observer to get state update and progress notifications
+        uploadObserver.setTransferListener(new TransferListener() {
 
 
-            Point[] points;
-            points = contours.get(0).toArray();
-            double maxRadius = 0;
-            for (Point p : points) {
-                double a = (x - p.x) * (x - p.x);
-                double b = (y - p.y) * (y - p.y);
-                double len = Math.sqrt((a + b));
-                if (len > maxRadius) {
-                    maxRadius = len;
-                }
-            }*/
-
-
-           /*create a mask with only the circle - to compare later with matchShapes*/
-            /*Mat circle = new Mat(src.rows(), src.cols(), CvType.CV_8UC1);
-            Imgproc.circle(circle, new Point(x, y), (int) maxRadius, new Scalar(255, 255, 255), 5);
-            List<MatOfPoint> contours1 = new ArrayList<>();
-            Mat hierarchy1 = new Mat();//for findContours calculation. Do not touch.
-            Imgproc.threshold(circle, circle, 254, 254, Imgproc.THRESH_BINARY);
-            Imgproc.findContours(circle, contours1, hierarchy1, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_NONE);
-            */
-
-            /*Finding index of biggest contour*/
-            int index=0;
-            double max=0;
-            for (int i=0;i<contours.size();i++){
-                double area =Imgproc.contourArea(contours.get(i));
-                if(area>max){
-                    max = area;
-                    index=i;
+            @Override
+            public void onStateChanged(int id, TransferState state) {
+                if (TransferState.COMPLETED == state) {
+                    // Handle a completed upload.
                 }
             }
 
+            @Override
+            public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
+                float percentDonef = ((float) bytesCurrent / (float) bytesTotal) * 100;
+                int percentDone = (int) percentDonef;
 
-            /*calculate the difference between contour and a the minimal enclosing circle*/
 
-            //covert contour to matOfPoint
-            MatOfPoint2f m = new MatOfPoint2f();
-            contours.get(index).convertTo(m, CvType.CV_32F);
-            Point center;
-            //for enclosing ellipse
-            RotatedRect rect = Imgproc.fitEllipse(m);
-            center = rect.center;
-            //for finding 4 points of rect
-            double longSide, shortSide;
-            if (rect.size.width > rect.size.height) {
-                longSide = rect.size.width;
-                shortSide = rect.size.height;
-            } else {
-                longSide = rect.size.height;
-                shortSide = rect.size.width;
+                Log.d("YourActivity", "ID:" + id + " bytesCurrent: " + bytesCurrent
+                        + " bytesTotal: " + bytesTotal + " " + percentDone + "%");
             }
 
-
-            /*These vectors will store the points on the width and height of the bounding rectangle*/
-            Vector<Point> vecOfShortPoints = new Vector<>();
-            Vector<Point> vecOfLongPoints = new Vector<>();
-            //Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
-            Point[] rectPoints = new Point[4];
-
-            rect.points(rectPoints);
-            Log.i(TAG, "doInBackground: size: "+rectPoints.length);
-            Point iterA,iterB;
-
-            for(int i=0;i<4;i++){
-                for(int j=i;j<4;j++){
-                    double distance;
-                    iterA = rectPoints[i];
-                    iterB=rectPoints[j];
-                    distance = calcDistance(iterA,iterB);
-                    if(distance==0){
-                        continue;
-                    }
-                    if(Math.abs(distance-longSide)<=0.5){
-                        double newX = ((iterA.x+iterB.x)/2);
-                        double newY =((iterA.y+iterB.y)/2);
-                        Point toAdd = new Point(newX,newY);
-                        vecOfLongPoints.add(toAdd);
-                    }
-                    else if(Math.abs(distance-shortSide)<=0.5){
-                        double newX = ((iterA.x+iterB.x)/2);
-                        double newY =((iterA.y+iterB.y)/2);
-                        Point toAdd = new Point(newX,newY);
-                        vecOfShortPoints.add(toAdd);
-                    }
-                }
+            @Override
+            public void onError(int id, Exception ex) {
+                // Handle errors
             }
 
+        });
 
-
-            //drawing the axes
-
-            Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
-            Imgproc.line(src,vecOfLongPoints.firstElement(),vecOfLongPoints.lastElement(),new Scalar(0, 0,255), 5);
-            Imgproc.line(src,vecOfShortPoints.firstElement(),vecOfShortPoints.lastElement(),new Scalar(255, 0,0 ), 5);
-            Imgproc.circle(src,center,4,new Scalar(0, 255,0 ),5);
-
-            //for dividing main contour
-
-            /*This section for dividing the condoturs into two sub constours*/
-           /* List<MatOfPoint> firstCountour = new ArrayList<>();
-            Mat firstCountourHierarchy = new Mat();//for findContours calculation. Do not touch.
-            Imgproc.findContours(src,firstCountour,firstCountourHierarchy, Imgproc.RETR_EXTERNAL , Imgproc.CHAIN_APPROX_SIMPLE);
-            Log.i(TAG, "doInBackground: size_contour: "+ firstCountour.size());
-            Imgproc.cvtColor(src, src, Imgproc.COLOR_GRAY2BGR);
-            MatOfPoint mopFirst;
-            MatOfPoint mopSecond;
-            mopFirst=firstCountour.get(0);
-            List<MatOfPoint> first = new ArrayList<>();
-            List<MatOfPoint> second = new ArrayList<>();
-            first.add(firstCountour.get(0));
-            second.add(firstCountour.get(1));
-            Imgproc.drawContours(src,first,-1,new Scalar(0,0,255),-1);
-            Imgproc.drawContours(src,second,-1,new Scalar(255,0,0),-1);
-            */
-
-            //this section is for masking the segment the mole in full color
-            /*
-            Mat original = new  Mat(1,1,CvType.CV_8UC3);//this is the original colored image
-            Utils.bitmapToMat(bm,original);//loading original colored image to the matrix
-            Imgproc.resize(original,original,new Size(src.width(),src.height()));//adapting and resizing the original to be same as src matrix dimentions
-            Mat result = Mat.zeros(bm.getWidth(),bm.getHeight(),CvType.CV_8UC3);//creating result matrix full of zeros at the begining
-            original.copyTo(result,src);//perform copy from original to result and using src matrix as mask
-            */
-
-
-            Bitmap bm = Bitmap.createBitmap(src.cols(), src.rows(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(src, bm);
-            // src.release();
-            // dest.release();
-            //  cloneDest.release();
-            //  hierarchy.release();
-            return bm;
+        // If you prefer to poll for the data, instead of attaching a
+        // listener, check for the state and progress in the observer.
+        if (TransferState.COMPLETED == uploadObserver.getState()) {
 
         }
-
-
-
-
-
-
+//        Toast.makeText(getApplicationContext(), "Upload to server completed", Toast.LENGTH_LONG);
+        Log.d("YourActivity", "Bytes Transferrred: " + uploadObserver.getBytesTransferred());
+        Log.d("YourActivity", "Bytes Total: " + uploadObserver.getBytesTotal());
     }
 
+//    private class UploadToS3 extends AsyncTask<Uri, Integer, Void> {
+//
+//
+//        /**
+//         * Set the view before image process.
+//         */
+//        @Override
+//        protected void onPreExecute() {
+//            int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
+//            View v = findViewById(R.id.my_layout);
+//            v.setAlpha(.5f);
+//            pb.setVisibility(View.VISIBLE);
+//            pb.animate().setDuration(shortAnimTime).alpha(
+//                    1).setListener(new AnimatorListenerAdapter() {
+//                @Override
+//                public void onAnimationEnd(Animator animation) {
+//                    pb.setVisibility(View.VISIBLE);
+//
+//                }
+//            });
+//        }
+//
+//
+////        @Override
+////        protected void onPostExecute(Void aVoid) {
+////            super.onPostExecute(aVoid);
+////        }
+//
+//        @Override
+//        protected void onPostExecute(Void Void) {
+//
+//            pb.setVisibility(View.INVISIBLE);
+//
+//            pb.animate().setDuration(0).alpha(
+//                    0).setListener(new AnimatorListenerAdapter() {
+//                @Override
+//                public void onAnimationEnd(Animator animation) {
+//                    pb.setVisibility(View.INVISIBLE);
+//
+//                }
+//            });
+//            View v = findViewById(R.id.my_layout);
+//            v.setAlpha(1f);
+//            //setPic(bitmap,null);
+//
+//        }
+//
+//        @Override
+//        protected Void doInBackground(Uri... Uri) {
+//
+//            String path = getPath(getApplicationContext(), Uri[0]);
+//            uploadWithTransferUtility(path);
+//            return null;
+//        }
+//
+//
+//    }
 
-    public void onHistogramClicked(View v) {
-        Mat src = new Mat();
-        Mat dest = new Mat();
-
-        Utils.bitmapToMat(currentBitmap, src);
-        Size rgbaSize = src.size();
-        // Set the amount of bars in the histogram.
-        int histSize = 256;
-        MatOfInt histogramSize = new MatOfInt(histSize);
-
-// Set the height of the histogram and width of the bar.
-        int histogramHeight = (int) rgbaSize.height;
-        int binWidth = 5;
-
-// Set the value range.
-        MatOfFloat histogramRange = new MatOfFloat(0f, 256f);
-
-// Create two separate lists: one for colors and one for channels (these will be used as separate datasets).
-        Scalar[] colorsRgb = new Scalar[]{new Scalar(200, 0, 0, 255), new Scalar(0, 200, 0, 255), new Scalar(0, 0, 200, 255)};
-        MatOfInt[] channels = new MatOfInt[]{new MatOfInt(0), new MatOfInt(1), new MatOfInt(2)};
-
-// Create an array to be saved in the histogram and a second array, on which the histogram chart will be drawn.
-        Mat[] histograms = new Mat[]{new Mat(), new Mat(), new Mat()};
-        Mat histMatBitmap = new Mat(rgbaSize, src.type());
-
-        for (int i = 0; i < channels.length; i++) {
-            Imgproc.calcHist(Collections.singletonList(src), channels[i], new Mat(), histograms[i], histogramSize, histogramRange);
-            Core.normalize(histograms[i], histograms[i], histogramHeight, 0, Core.NORM_INF);
-            for (int j = 0; j < histSize; j++) {
-                Point p1 = new Point(binWidth * (j - 1), histogramHeight - Math.round(histograms[i].get(j - 1, 0)[0]));
-                Point p2 = new Point(binWidth * j, histogramHeight - Math.round(histograms[i].get(j, 0)[0]));
-                Imgproc.line(histMatBitmap, p1, p2, colorsRgb[i], 2, 8, 0);
-            }
-        }
-
-        Bitmap bm = Bitmap.createBitmap(histMatBitmap.cols(), histMatBitmap.rows(), Bitmap.Config.ARGB_8888);
-        Utils.matToBitmap(histMatBitmap, bm);
-        mImageView.setImageBitmap(bm);
-        ImageButton b = (ImageButton) findViewById(R.id.analyze_btn);
-        b.setEnabled(true);
-        src.release();
-        dest.release();
-        histogramSize.release();
-        histMatBitmap.release();
-
-        for (MatOfInt mat : channels) {
-            mat.release();
-        }
-        for (Mat mat : histograms) {
-            mat.release();
-        }
-
-
-    }
 }
+
+
+

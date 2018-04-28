@@ -1,0 +1,38 @@
+{
+  "UserAgent": "MobileHub/1.0",
+  "Version": "1.0",
+  "CredentialsProvider": {
+    "CognitoIdentity": {
+      "Default": {
+        "PoolId": "us-east-1:3a88e4c9-d294-4ebf-aa1f-eae9ad29843c",
+        "Region": "us-east-1"
+      }
+    }
+  },
+  "IdentityManager": {
+    "Default": {}
+  },
+  "S3TransferUtility": {
+    "Default": {
+      "Bucket": "deep-learning-omri",
+      "Region": "us-east-1"
+    }
+  },
+  "PinpointAnalytics": {
+    "Default": {
+      "AppId": "33c68a485e0d4d759842f920f9a9c500",
+      "Region": "us-east-1"
+    }
+  },
+  "PinpointTargeting": {
+    "Default": {
+      "Region": "us-east-1"
+    }
+  },
+  "UserFileManager": {
+    "Default": {
+      "Bucket": "moleagnose-userfiles-mobilehub-272570904",
+      "Region": "us-east-1"
+    }
+  }
+}

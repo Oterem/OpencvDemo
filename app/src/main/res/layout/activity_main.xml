@@ -139,31 +139,6 @@
         app:layout_constraintVertical_bias="0.41" />
 
 
-    <ImageButton
-        android:id="@+id/hostogram_btn"
-        android:layout_width="70dp"
-        android:layout_height="70dp"
-
-        android:layout_below="@+id/textView"
-        android:layout_marginBottom="8dp"
-        android:layout_marginLeft="8dp"
-        android:layout_marginRight="16dp"
-        android:layout_marginTop="16dp"
-        android:layout_toStartOf="@+id/analyze_btn"
-        android:background="@drawable/rounded_corners"
-        android:contentDescription="@string/calculating_histogram"
-        android:cropToPadding="false"
-
-
-        android:onClick="onHistogramClicked"
-        android:scaleType="fitXY"
-        android:src="@drawable/histogram_icon"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintHorizontal_bias="1.0"
-        app:layout_constraintLeft_toRightOf="@+id/analyze_btn"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.0" />
 
     <TextView
         android:id="@+id/textView"

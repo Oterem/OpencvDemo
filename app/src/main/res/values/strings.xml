@@ -16,5 +16,7 @@
     <string name="sample_from_blob">הקש על הנקודה החשודה</string>
     <string name="sample_from_skin">הקש על העור</string>
     <string name="validate_segment">האם זו הנקודה החשודה?</string>
+    <string name="upload_image">Uplading image</string>
+
 
 </resources>

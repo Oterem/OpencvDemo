@@ -1,10 +1,14 @@
 [
     {
-        "outputFile": "C:\\Users\\shail\\Documents\\Learning_Android\\OpencvDemo\\openCVLibrary330\\build\\intermediates\\incremental\\mergeDebugAndroidTestResources\\merged.dir\\values\\values.xml",
+        "outputFile": "/Users/oterem/Desktop/project/moleAgnose/C:\\Users\\shail\\Documents\\Learning_Android\\OpencvDemo\\openCVLibrary330\\build\\intermediates\\incremental\\mergeDebugAndroidTestResources\\merged.dir\\values\\values.xml",
         "map": []
     },
     {
-        "outputFile": "C:\\Android projects\\OpencvDemo\\openCVLibrary330\\build\\intermediates\\incremental\\mergeDebugAndroidTestResources\\merged.dir\\values\\values.xml",
+        "outputFile": "/Users/oterem/Desktop/project/moleAgnose/C:\\Android projects\\OpencvDemo\\openCVLibrary330\\build\\intermediates\\incremental\\mergeDebugAndroidTestResources\\merged.dir\\values\\values.xml",
+        "map": []
+    },
+    {
+        "outputFile": "/Users/oterem/Desktop/project/moleAgnose/openCVLibrary330/build/intermediates/incremental/mergeDebugAndroidTestResources/merged.dir/values/values.xml",
         "map": []
     }
 ]
