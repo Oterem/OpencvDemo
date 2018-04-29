@@ -92,7 +92,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int SAMPLE_BLOB = 3;
     private static final int SAMPLE_SKIN = 4;
     private Uri photoURI;
-    private ProgressBar pb;
+    private ProgressBar pb, uploading_bar;
     private Point seed, skin;
     private double[] seedRGB, skinRGB, seedAvgColor, skinAvgColor;
     private double threshold;
@@ -101,6 +101,7 @@ public class MainActivity extends AppCompatActivity {
     private double diff = 0;
     private boolean isImageSegmented = false;
     private Uri currentUri;
+    private String uploadedKey = "";
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -120,6 +121,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         pb = (ProgressBar) findViewById(R.id.progressbar_loading);
+        uploading_bar = (ProgressBar) findViewById(R.id.loading_bar);
         pb.setVisibility(View.GONE);
         mImageView = (ImageView) findViewById(R.id.pic1);
         analyze_btn = (ImageButton) findViewById(R.id.analyze_btn);
@@ -653,9 +655,9 @@ public class MainActivity extends AppCompatActivity {
 
 
                             String path = getPath(getApplicationContext(), currentUri);
-                            uploadWithTransferUtility(path);
-//                            UploadToS3 job = new UploadToS3();
-//                            job.execute(currentUri);
+//                            uploadWithTransferUtility(path);
+                            UploadToS3 job = new UploadToS3();
+                            job.execute(currentUri);
 
                         }
                     })
@@ -806,6 +808,59 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+
+    private void downloadWithTransferUtility() {
+
+        TransferUtility transferUtility =
+                TransferUtility.builder()
+                        .context(getApplicationContext())
+                        .awsConfiguration(AWSMobileClient.getInstance().getConfiguration())
+                        .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
+                        .build();
+
+        String path = getPath(getApplicationContext(), currentUri);
+        path+="_shai";
+        TransferObserver downloadObserver =
+                transferUtility.download(
+                        uploadedKey,
+                        new File("/storage/emulated/0/Download/shai.json"));
+
+        // Attach a listener to the observer to get state update and progress notifications
+        downloadObserver.setTransferListener(new TransferListener() {
+
+            @Override
+            public void onStateChanged(int id, TransferState state) {
+                if (TransferState.COMPLETED == state) {
+                    // Handle a completed upload.
+                }
+            }
+
+            @Override
+            public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
+                float percentDonef = ((float)bytesCurrent/(float)bytesTotal) * 100;
+                int percentDone = (int)percentDonef;
+
+                Log.d("MainActivity", "   ID:" + id + "   bytesCurrent: " + bytesCurrent + "   bytesTotal: " + bytesTotal + " " + percentDone + "%");
+            }
+
+            @Override
+            public void onError(int id, Exception ex) {
+                // Handle errors
+            }
+
+        });
+
+        // If you prefer to poll for the data, instead of attaching a
+        // listener, check for the state and progress in the observer.
+        if (TransferState.COMPLETED == downloadObserver.getState()) {
+            // Handle a completed upload.
+        }
+
+        Log.d("YourActivity", "Bytes Transferrred: " + downloadObserver.getBytesTransferred());
+        Log.d("YourActivity", "Bytes Total: " + downloadObserver.getBytesTotal());
+    }
+
+
     public void uploadWithTransferUtility(String path) {
          String android_id = Secure.getString(getBaseContext().getContentResolver(),
                 Secure.ANDROID_ID);
@@ -816,9 +871,10 @@ public class MainActivity extends AppCompatActivity {
                         .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
                         .build();
 
+        uploadedKey = android_id+"_"+imageName+".jpg";
         TransferObserver uploadObserver =
                 transferUtility.upload(
-                        android_id+"_"+imageName+".jpg",
+                        uploadedKey,
                         new File(path));
 
 
@@ -860,63 +916,80 @@ public class MainActivity extends AppCompatActivity {
         Log.d("YourActivity", "Bytes Total: " + uploadObserver.getBytesTotal());
     }
 
-//    private class UploadToS3 extends AsyncTask<Uri, Integer, Void> {
-//
-//
-//        /**
-//         * Set the view before image process.
-//         */
+
+
+    private class UploadToS3 extends AsyncTask<Uri, Integer, Void> {
+
+
+        /**
+         * Set the view before image process.
+         */
+        @Override
+        protected void onPreExecute() {
+            int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
+            View v = findViewById(R.id.my_layout);
+            v.setAlpha(.5f);
+            uploading_bar.setVisibility(View.VISIBLE);
+            uploading_bar.setMax(100);
+            uploading_bar.animate().setDuration(shortAnimTime).alpha(
+                    1).setListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    uploading_bar.setVisibility(View.VISIBLE);
+
+                }
+            });
+        }
+
+        @Override
+        protected void onProgressUpdate(Integer... values) {
+            uploading_bar.setProgress(values[0]);
+
+        }
 //        @Override
-//        protected void onPreExecute() {
-//            int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
-//            View v = findViewById(R.id.my_layout);
-//            v.setAlpha(.5f);
-//            pb.setVisibility(View.VISIBLE);
-//            pb.animate().setDuration(shortAnimTime).alpha(
-//                    1).setListener(new AnimatorListenerAdapter() {
-//                @Override
-//                public void onAnimationEnd(Animator animation) {
-//                    pb.setVisibility(View.VISIBLE);
-//
-//                }
-//            });
+//        protected void onPostExecute(Void aVoid) {
+//            super.onPostExecute(aVoid);
 //        }
-//
-//
-////        @Override
-////        protected void onPostExecute(Void aVoid) {
-////            super.onPostExecute(aVoid);
-////        }
-//
-//        @Override
-//        protected void onPostExecute(Void Void) {
-//
-//            pb.setVisibility(View.INVISIBLE);
-//
-//            pb.animate().setDuration(0).alpha(
-//                    0).setListener(new AnimatorListenerAdapter() {
-//                @Override
-//                public void onAnimationEnd(Animator animation) {
-//                    pb.setVisibility(View.INVISIBLE);
-//
-//                }
-//            });
-//            View v = findViewById(R.id.my_layout);
-//            v.setAlpha(1f);
-//            //setPic(bitmap,null);
-//
-//        }
-//
-//        @Override
-//        protected Void doInBackground(Uri... Uri) {
-//
-//            String path = getPath(getApplicationContext(), Uri[0]);
-//            uploadWithTransferUtility(path);
-//            return null;
-//        }
-//
-//
-//    }
+
+        @Override
+        protected void onPostExecute(Void Void) {
+
+            uploading_bar.setVisibility(View.INVISIBLE);
+
+            uploading_bar.animate().setDuration(0).alpha(
+                    0).setListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    uploading_bar.setVisibility(View.INVISIBLE);
+
+                }
+            });
+            View v = findViewById(R.id.my_layout);
+            v.setAlpha(1f);
+            downloadWithTransferUtility();
+            //setPic(bitmap,null);
+
+        }
+
+        @Override
+        protected Void doInBackground(Uri... Uri) {
+
+            String path = getPath(getApplicationContext(), Uri[0]);
+            uploadWithTransferUtility(path);
+            for(int i=0;i<10;i++){
+                try {
+                    Thread.sleep(1000);
+                    publishProgress(i*10);
+
+                }catch (Exception e){
+                    e.printStackTrace();;
+                }
+            }
+            return null;
+        }
+
+
+    }
 
 }
 
