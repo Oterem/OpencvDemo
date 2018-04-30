@@ -14,7 +14,7 @@
   },
   "S3TransferUtility": {
     "Default": {
-      "Bucket": "deep-learning-omri",
+      "Bucket": "moleagnose-images",
       "Region": "us-east-1"
     }
   },
@@ -31,7 +31,7 @@
   },
   "UserFileManager": {
     "Default": {
-      "Bucket": "moleagnose-userfiles-mobilehub-272570904",
+      "Bucket": "moleagnose-images",
       "Region": "us-east-1"
     }
   }

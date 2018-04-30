@@ -3,8 +3,6 @@ package omri.opencvdemo;
 import android.provider.Settings.Secure;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -23,40 +21,30 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.support.v4.app.NotificationManagerCompat;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.app.NotificationCompat;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.amazonaws.mobile.auth.core.IdentityManager;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.bumptech.glide.Glide;
 import com.theartofdev.edmodo.cropper.CropImage;
 
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
-import org.opencv.core.Core;
-import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-import org.opencv.core.MatOfFloat;
-import org.opencv.core.MatOfInt;
-import org.opencv.core.MatOfPoint;
-import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
-import org.opencv.core.RotatedRect;
-import org.opencv.core.Scalar;
-import org.opencv.core.Size;
-import org.opencv.imgproc.Imgproc;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -64,14 +52,11 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Locale;
 import java.util.Queue;
-import java.util.Vector;
+
 import com.amazonaws.mobileconnectors.s3.transferutility.*;
 import com.amazonaws.mobile.client.*;
 //import org.bytedeco.javacpp.opencv_core;
@@ -82,8 +67,10 @@ public class MainActivity extends AppCompatActivity {
 
     private ImageView mImageView;
     private Bitmap currentBitmap, calculatedBitmap;
-    private ImageButton analyze_btn, histogram_btn;
+    private ImageButton analyze_btn;
     private static final String TAG = "MainActivity";
+    private static final String UPLOAD_BUCKET = "moleagnose-images";
+    private static final String DOWNLOAD_BUCKET = "moleagnose-results";
     private String currentPhotoPath, currentGalleryPath;
     private static final int ACTION_IMAGE_CAPTURE = 1;
     private static final int ACTION_GET_CONTENT = 2;
@@ -102,6 +89,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isImageSegmented = false;
     private Uri currentUri;
     private String uploadedKey = "";
+    private Button download_btn;
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -124,6 +112,7 @@ public class MainActivity extends AppCompatActivity {
         uploading_bar = (ProgressBar) findViewById(R.id.loading_bar);
         pb.setVisibility(View.GONE);
         mImageView = (ImageView) findViewById(R.id.pic1);
+        download_btn = (Button)findViewById(R.id.download_btn);
         analyze_btn = (ImageButton) findViewById(R.id.analyze_btn);
         analyze_btn.setEnabled(false);
 //        histogram_btn = (ImageButton) findViewById(R.id.hostogram_btn);
@@ -198,6 +187,8 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
+
 
     /*----------------------------------------------------------------------------*/
     public Uri getImageUri(Context inContext, Bitmap inImage) {
@@ -427,6 +418,10 @@ public class MainActivity extends AppCompatActivity {
         String[] tokens = path.split("/");
         String name = tokens[tokens.length - 1];
         return name;
+    }
+
+    public void onDownloadClick(View v){
+        downloadWithTransferUtility();
     }
 
 
@@ -809,7 +804,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    private void downloadWithTransferUtility() {
+    public void downloadWithTransferUtility() {
+
+        String key = "omri.jpg";
+         File file = new File(Environment.getExternalStorageDirectory().toString() + "/" + key);
 
         TransferUtility transferUtility =
                 TransferUtility.builder()
@@ -818,12 +816,11 @@ public class MainActivity extends AppCompatActivity {
                         .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
                         .build();
 
-        String path = getPath(getApplicationContext(), currentUri);
-        path+="_shai";
+       // String path = getPath(getApplicationContext(),currentUri);
         TransferObserver downloadObserver =
                 transferUtility.download(
-                        uploadedKey,
-                        new File("/storage/emulated/0/Download/shai.json"));
+                        DOWNLOAD_BUCKET,"omri.jpg",
+                        file);
 
         // Attach a listener to the observer to get state update and progress notifications
         downloadObserver.setTransferListener(new TransferListener() {
