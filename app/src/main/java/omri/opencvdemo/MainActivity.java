@@ -99,6 +99,7 @@ public class MainActivity extends AppCompatActivity {
     private Uri currentUri;
     private String uploadedKey = "";
     private Button download_btn;
+    private String nameToDownload = "";
 
 
     // Used to load the 'native-lib' library on application startup.
@@ -436,45 +437,11 @@ public class MainActivity extends AppCompatActivity {
 
     public void onDownloadClick(){
         //downloadWithTransferUtility();
-        String fileName = getS3Object();
+        //download and ave in cache the json from s3 bucket. returns the name of saved file (random name)
+        downloadFromS3();
 
 
-        String cachePath = getCacheDir().getPath();
-        File myDisk = new File(cachePath);
-        File json_string = new File(myDisk+File.separator+fileName);
-        String res = "";
-        FileInputStream fis = null;
-        JSONObject json = null;
-        try {
-            //f = new BufferedInputStream(new FileInputStream(filePath));
-            //f.read(buffer);
 
-            fis = new FileInputStream(json_string);
-            char current;
-            while (fis.available() > 0) {
-                current = (char) fis.read();
-                res = res + String.valueOf(current);
-            }
-        } catch (Exception e) {
-            Log.d("TourGuide", e.toString());
-        } finally {
-            if (fis != null)
-                try {
-                    fis.close();
-                } catch (IOException ignored) {
-                }
-        }
-        try{
-             json = new JSONObject(res);
-            JSONObject bigger = json.getJSONObject("bigger");
-            String name = bigger.getString("name");
-            double val = bigger.getDouble("value");
-
-            Log.i(TAG, "OT: "+name+", "+val);
-
-        }catch (Exception e){
-
-        }
 
 
     }
@@ -502,10 +469,10 @@ public class MainActivity extends AppCompatActivity {
         return file;
     }
 
-    public String getS3Object(){
+    public void downloadFromS3(){
 
         File f = getTempFile(getApplicationContext());
-        String name = f.getName();
+        nameToDownload = f.getName();
 
 
         TransferUtility transferUtility =
@@ -515,11 +482,76 @@ public class MainActivity extends AppCompatActivity {
                         .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
                         .build();
 
-        TransferObserver downloadObserver =
-                transferUtility.download(DOWNLOAD_BUCKET,uploadedKey+".json",f);
 
-        return name;
+        TransferObserver downloadObserver =
+                transferUtility.download(DOWNLOAD_BUCKET,uploadedKey,f);
+        Log.d("YourActivity", "Upload Complete");
+        String cachePath = getCacheDir().getPath();
+        File myDisk = new File(cachePath);
+        File json_string = new File(myDisk+File.separator+nameToDownload+".json");
+        String res = "";
+        FileInputStream fis = null;
+        JSONObject json = null;
+        try {
+            //f = new BufferedInputStream(new FileInputStream(filePath));
+            //f.read(buffer);
+
+            fis = new FileInputStream(json_string);
+            char current;
+            while (fis.available() > 0) {
+                current = (char) fis.read();
+                res = res + String.valueOf(current);
+            }
+        } catch (Exception e) {
+            Log.d("TourGuide", e.toString());
+        } finally {
+            if (fis != null)
+                try {
+                    fis.close();
+                } catch (IOException ignored) {
+                }
+        }
+        try{
+            json = new JSONObject(res);
+            JSONObject bigger = json.getJSONObject("bigger");
+            String name = bigger.getString("name");
+            double val = bigger.getDouble("value");
+
+            Log.i(TAG, "OT: "+name+", "+val);
+
+        }catch (Exception e){
+
+        }
+
+
+
+        downloadObserver.setTransferListener(new TransferListener() {
+
+            @Override
+            public void onStateChanged(int id, TransferState state) {
+                if (TransferState.COMPLETED == state) {
+                    // Handle a completed upload.
+
+
+
+
+                }
+            }
+
+            @Override
+            public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
+
+            }
+
+            @Override
+            public void onError(int id, Exception ex) {
+
+            }
+        });
+
+
     }
+
 
 
 
@@ -752,7 +784,7 @@ public class MainActivity extends AppCompatActivity {
 
                             String path = getPath(getApplicationContext(), currentUri);
 //                            WithTransferUtility(path);
-                            UploadToS3 job = new UploadToS3();
+                            UploadToS3AsyncTask job = new UploadToS3AsyncTask();
                             job.execute(currentUri);
 
                         }
@@ -825,35 +857,10 @@ public class MainActivity extends AppCompatActivity {
             return sum / array.length;
         }
 
-        /*-----------------------------------------------------*/
-        protected double getVariance(double[] array) {
-            double mean = getMean(array);
-            double temp = 0;
-            for (double val : array) {
-                temp += (val - mean) * (val - mean);
-            }
-            return temp / (array.length - 1);
-        }
 
-        /*-----------------------------------------------------*/
-        protected double calcDistance(Point a, Point b) {
 
-            double x = (a.x - b.x) * (a.x - b.x);
-            double y = (a.y - b.y) * (a.y - b.y);
-            return Math.sqrt(x + y);
-        }
 
-        /*-----------------------------------------------------*/
-        protected double getCovariance(double[] x, double[] y) {
-            int n = x.length;
-            double averageX = getMean(x);
-            double averageY = getMean(y);
-            double sum = 0.0;
-            for (int i = 0; i < n; i++) {
-                sum += (x[i] - averageX) * (y[i] - averageY);
-            }
-            return sum / n;
-        }
+
 
         /**
          * This method perform image process
@@ -916,42 +923,126 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    public void downloadWithTransferUtility() {
+//    public void downloadWithTransferUtility() {
+//
+//        //File f = getPublicAlbumStorageDir();
+//
+//
+//        TransferUtility transferUtility =
+//                TransferUtility.builder()
+//                        .context(getApplicationContext())
+//                        .awsConfiguration(AWSMobileClient.getInstance().getConfiguration())
+//                        .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
+//                        .build();
+//
+//        try{
+////            File file = new File(getApplicationContext().getFilesDir(), "omri.jpg");
+//             File file = createImageFile();
+//            //File file = getPublicAlbumStorageDir();
+////            addImageToGallery(f.getAbsolutePath(), getApplicationContext());
+//            TransferObserver downloadObserver =
+//                    transferUtility.download(
+//                            DOWNLOAD_BUCKET,uploadedKey+".json",
+//                            file);
+//            downloadObserver.setTransferListener(new TransferListener() {
+//
+//                @Override
+//                public void onStateChanged(int id, TransferState state) {
+//                    if (TransferState.COMPLETED == state) {
+//                        // Handle a completed upload.
+//                    }
+//                }
+//
+//                @Override
+//                public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
+//                    float percentDonef = ((float)bytesCurrent/(float)bytesTotal) * 100;
+//                    int percentDone = (int)percentDonef;
+//
+//                    Log.d("MainActivity", "   ID:" + id + "   bytesCurrent: " + bytesCurrent + "   bytesTotal: " + bytesTotal + " " + percentDone + "%");
+//                }
+//
+//                @Override
+//                public void onError(int id, Exception ex) {
+//                    // Handle errors
+//                }
+//
+//            });
+//
+//            // If you prefer to poll for the data, instead of attaching a
+//            // listener, check for the state and progress in the observer.
+//            if (TransferState.COMPLETED == downloadObserver.getState()) {
+//                // Handle a completed upload.
+//            }
+//
+//            Log.d("YourActivity", "Bytes Transferrred: " + downloadObserver.getBytesTransferred());
+//            Log.d("YourActivity", "Bytes Total: " + downloadObserver.getBytesTotal());
+//
+//        }catch (Exception e){
+//            Toast.makeText(getApplicationContext(),"error in download", Toast.LENGTH_LONG);
+//        }
+//
+//
+//         //File file = new File(Environment.getExternalStorageDirectory().toString() + "/" + key);
+//
+//
+//
+//       // String path = getPath(getApplicationContext(),currentUri);
+//
+//
+//        // Attach a listener to the observer to get state update and progress notifications
+//
+//    }
 
-        //File f = getPublicAlbumStorageDir();
 
 
-        TransferUtility transferUtility =
-                TransferUtility.builder()
-                        .context(getApplicationContext())
-                        .awsConfiguration(AWSMobileClient.getInstance().getConfiguration())
-                        .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
-                        .build();
 
-        try{
-//            File file = new File(getApplicationContext().getFilesDir(), "omri.jpg");
-             File file = createImageFile();
-            //File file = getPublicAlbumStorageDir();
-//            addImageToGallery(f.getAbsolutePath(), getApplicationContext());
-            TransferObserver downloadObserver =
-                    transferUtility.download(
-                            DOWNLOAD_BUCKET,uploadedKey+".json",
-                            file);
-            downloadObserver.setTransferListener(new TransferListener() {
+
+
+
+
+    private class UploadToS3AsyncTask extends AsyncTask<Uri, Integer, Void> {
+
+
+
+        public void uploadWithTransferUtility(String path) {
+            String android_id = Secure.getString(getBaseContext().getContentResolver(),
+                    Secure.ANDROID_ID);
+            TransferUtility transferUtility =
+                    TransferUtility.builder()
+                            .context(getApplicationContext())
+                            .awsConfiguration(AWSMobileClient.getInstance().getConfiguration())
+                            .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
+                            .build();
+
+            uploadedKey = (android_id+"_"+imageName).replace(".", "_");
+            TransferObserver uploadObserver =
+                    transferUtility.upload(UPLOAD_BUCKET,uploadedKey+".jpg",new File(path));
+
+
+            // Attach a listener to the observer to get state update and progress notifications
+            uploadObserver.setTransferListener(new TransferListener() {
+
 
                 @Override
                 public void onStateChanged(int id, TransferState state) {
                     if (TransferState.COMPLETED == state) {
                         // Handle a completed upload.
+                        Log.d("YourActivity", "Upload Complete");
+
+
                     }
                 }
 
                 @Override
                 public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
-                    float percentDonef = ((float)bytesCurrent/(float)bytesTotal) * 100;
-                    int percentDone = (int)percentDonef;
+                    float percentDonef = ((float) bytesCurrent / (float) bytesTotal) * 100;
+                    int percentDone = (int) percentDonef;
+                    onProgressUpdate(percentDone);
 
-                    Log.d("MainActivity", "   ID:" + id + "   bytesCurrent: " + bytesCurrent + "   bytesTotal: " + bytesTotal + " " + percentDone + "%");
+
+
+                    Log.d("YourActivity", "ID:" + id + " bytesCurrent: " + bytesCurrent
+                            + " bytesTotal: " + bytesTotal + " " + percentDone + "%");
                 }
 
                 @Override
@@ -963,90 +1054,14 @@ public class MainActivity extends AppCompatActivity {
 
             // If you prefer to poll for the data, instead of attaching a
             // listener, check for the state and progress in the observer.
-            if (TransferState.COMPLETED == downloadObserver.getState()) {
-                // Handle a completed upload.
+            if (TransferState.COMPLETED == uploadObserver.getState()) {
+                Log.d("YourActivity", "Upload Complete");
+
             }
-
-            Log.d("YourActivity", "Bytes Transferrred: " + downloadObserver.getBytesTransferred());
-            Log.d("YourActivity", "Bytes Total: " + downloadObserver.getBytesTotal());
-
-        }catch (Exception e){
-            Toast.makeText(getApplicationContext(),"error in download", Toast.LENGTH_LONG);
-        }
-
-
-         //File file = new File(Environment.getExternalStorageDirectory().toString() + "/" + key);
-
-
-
-       // String path = getPath(getApplicationContext(),currentUri);
-
-
-        // Attach a listener to the observer to get state update and progress notifications
-
-    }
-
-
-
-
-    public void uploadWithTransferUtility(String path) {
-         String android_id = Secure.getString(getBaseContext().getContentResolver(),
-                Secure.ANDROID_ID);
-        TransferUtility transferUtility =
-                TransferUtility.builder()
-                        .context(getApplicationContext())
-                        .awsConfiguration(AWSMobileClient.getInstance().getConfiguration())
-                        .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
-                        .build();
-
-        uploadedKey = (android_id+"_"+imageName).replace(".", "_");
-        TransferObserver uploadObserver =
-                transferUtility.upload(UPLOAD_BUCKET,uploadedKey+".jpg",new File(path));
-
-
-        // Attach a listener to the observer to get state update and progress notifications
-        uploadObserver.setTransferListener(new TransferListener() {
-
-
-            @Override
-            public void onStateChanged(int id, TransferState state) {
-                if (TransferState.COMPLETED == state) {
-                    // Handle a completed upload.
-                }
-            }
-
-            @Override
-            public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
-                float percentDonef = ((float) bytesCurrent / (float) bytesTotal) * 100;
-                int percentDone = (int) percentDonef;
-
-
-                Log.d("YourActivity", "ID:" + id + " bytesCurrent: " + bytesCurrent
-                        + " bytesTotal: " + bytesTotal + " " + percentDone + "%");
-            }
-
-            @Override
-            public void onError(int id, Exception ex) {
-                // Handle errors
-            }
-
-        });
-
-        // If you prefer to poll for the data, instead of attaching a
-        // listener, check for the state and progress in the observer.
-        if (TransferState.COMPLETED == uploadObserver.getState()) {
-
-        }
 //        Toast.makeText(getApplicationContext(), "Upload to server completed", Toast.LENGTH_LONG);
-        Log.d("YourActivity", "Bytes Transferrred: " + uploadObserver.getBytesTransferred());
-        Log.d("YourActivity", "Bytes Total: " + uploadObserver.getBytesTotal());
-    }
-
-
-
-    private class UploadToS3 extends AsyncTask<Uri, Integer, Void> {
-
-
+            Log.d("YourActivity", "Bytes Transferrred: " + uploadObserver.getBytesTransferred());
+            Log.d("YourActivity", "Bytes Total: " + uploadObserver.getBytesTotal());
+        }
         /**
          * Set the view before image process.
          */
@@ -1092,7 +1107,8 @@ public class MainActivity extends AppCompatActivity {
             });
             View v = findViewById(R.id.my_layout);
             v.setAlpha(1f);
-            //downloadWithTransferUtility();
+            onDownloadClick();
+            //downloadWithTransferUtilitydownloadWithTransferUtility();
             //setPic(bitmap,null);
 
         }
@@ -1102,15 +1118,15 @@ public class MainActivity extends AppCompatActivity {
 
             String path = getPath(getApplicationContext(), Uri[0]);
             uploadWithTransferUtility(path);
-            for(int i=0;i<10;i++){
-                try {
-                    Thread.sleep(1000);
-                    publishProgress(i*10);
-
-                }catch (Exception e){
-                    e.printStackTrace();;
-                }
-            }
+//            for(int i=0;i<10;i++){
+//                try {
+//                    Thread.sleep(1000);
+//                    publishProgress(i*10);
+//
+//                }catch (Exception e){
+//                    e.printStackTrace();;
+//                }
+//            }
             return null;
         }
 
