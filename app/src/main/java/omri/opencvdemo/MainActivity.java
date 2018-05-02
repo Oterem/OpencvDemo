@@ -1,6 +1,5 @@
 package omri.opencvdemo;
 
-import android.provider.Settings.Secure;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
@@ -21,6 +20,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.provider.Settings.Secure;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -36,11 +36,21 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.amazonaws.mobile.auth.core.IdentityManager;
+import com.amazonaws.mobile.client.AWSMobileClient;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferObserver;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferState;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility;
+import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
+import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
+
 import com.bumptech.glide.Glide;
 import com.theartofdev.edmodo.cropper.CropImage;
 
+import org.json.JSONObject;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.core.Mat;
@@ -48,17 +58,16 @@ import org.opencv.core.Point;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.Locale;
 import java.util.Queue;
-
-import com.amazonaws.mobileconnectors.s3.transferutility.*;
-import com.amazonaws.mobile.client.*;
 //import org.bytedeco.javacpp.opencv_core;
 //import static org.bytedeco.javacpp.opencv_core.*;
 
@@ -417,12 +426,104 @@ public class MainActivity extends AppCompatActivity {
     String parseImageName(String path) {
         String[] tokens = path.split("/");
         String name = tokens[tokens.length - 1];
+        String n = name.replace(".jpg", "");
         return name;
     }
 
-    public void onDownloadClick(View v){
-        downloadWithTransferUtility();
+
+
+
+
+    public void onDownloadClick(){
+        //downloadWithTransferUtility();
+        String fileName = getS3Object();
+
+
+        String cachePath = getCacheDir().getPath();
+        File myDisk = new File(cachePath);
+        File json_string = new File(myDisk+File.separator+fileName);
+        String res = "";
+        FileInputStream fis = null;
+        JSONObject json = null;
+        try {
+            //f = new BufferedInputStream(new FileInputStream(filePath));
+            //f.read(buffer);
+
+            fis = new FileInputStream(json_string);
+            char current;
+            while (fis.available() > 0) {
+                current = (char) fis.read();
+                res = res + String.valueOf(current);
+            }
+        } catch (Exception e) {
+            Log.d("TourGuide", e.toString());
+        } finally {
+            if (fis != null)
+                try {
+                    fis.close();
+                } catch (IOException ignored) {
+                }
+        }
+        try{
+             json = new JSONObject(res);
+            JSONObject bigger = json.getJSONObject("bigger");
+            String name = bigger.getString("name");
+            double val = bigger.getDouble("value");
+
+            Log.i(TAG, "OT: "+name+", "+val);
+
+        }catch (Exception e){
+
+        }
+
+
     }
+
+
+
+
+
+
+
+
+
+    private File getTempFile(Context context) {
+        File file = new File("");
+        String name;
+        try {
+            String fileName = "omri";
+            file = File.createTempFile(fileName, "", context.getCacheDir());
+            String path = file.getAbsolutePath();
+            name = parseImageName(path);
+
+        } catch (IOException e) {
+            // Error while creating file
+        }
+        return file;
+    }
+
+    public String getS3Object(){
+
+        File f = getTempFile(getApplicationContext());
+        String name = f.getName();
+
+
+        TransferUtility transferUtility =
+                TransferUtility.builder()
+                        .context(getApplicationContext())
+                        .awsConfiguration(AWSMobileClient.getInstance().getConfiguration())
+                        .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
+                        .build();
+
+        TransferObserver downloadObserver =
+                transferUtility.download(DOWNLOAD_BUCKET,uploadedKey+".json",f);
+
+        return name;
+    }
+
+
+
+
 
 
     /*----------------------------------------------------------------------------*/
@@ -650,7 +751,7 @@ public class MainActivity extends AppCompatActivity {
 
 
                             String path = getPath(getApplicationContext(), currentUri);
-//                            uploadWithTransferUtility(path);
+//                            WithTransferUtility(path);
                             UploadToS3 job = new UploadToS3();
                             job.execute(currentUri);
 
@@ -804,10 +905,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+
+    public File getPublicAlbumStorageDir() {
+        File dcimDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM);
+        File picsDir = new File(dcimDir, "MyPics");
+        picsDir.mkdirs(); //make if not exist
+        File newFile = new File(picsDir, "omri.png");
+        return newFile;
+
+    }
+
+
     public void downloadWithTransferUtility() {
 
-        String key = "omri.jpg";
-         File file = new File(Environment.getExternalStorageDirectory().toString() + "/" + key);
+        //File f = getPublicAlbumStorageDir();
+
 
         TransferUtility transferUtility =
                 TransferUtility.builder()
@@ -816,46 +928,65 @@ public class MainActivity extends AppCompatActivity {
                         .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
                         .build();
 
-       // String path = getPath(getApplicationContext(),currentUri);
-        TransferObserver downloadObserver =
-                transferUtility.download(
-                        DOWNLOAD_BUCKET,"omri.jpg",
-                        file);
+        try{
+//            File file = new File(getApplicationContext().getFilesDir(), "omri.jpg");
+             File file = createImageFile();
+            //File file = getPublicAlbumStorageDir();
+//            addImageToGallery(f.getAbsolutePath(), getApplicationContext());
+            TransferObserver downloadObserver =
+                    transferUtility.download(
+                            DOWNLOAD_BUCKET,uploadedKey+".json",
+                            file);
+            downloadObserver.setTransferListener(new TransferListener() {
 
-        // Attach a listener to the observer to get state update and progress notifications
-        downloadObserver.setTransferListener(new TransferListener() {
-
-            @Override
-            public void onStateChanged(int id, TransferState state) {
-                if (TransferState.COMPLETED == state) {
-                    // Handle a completed upload.
+                @Override
+                public void onStateChanged(int id, TransferState state) {
+                    if (TransferState.COMPLETED == state) {
+                        // Handle a completed upload.
+                    }
                 }
+
+                @Override
+                public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
+                    float percentDonef = ((float)bytesCurrent/(float)bytesTotal) * 100;
+                    int percentDone = (int)percentDonef;
+
+                    Log.d("MainActivity", "   ID:" + id + "   bytesCurrent: " + bytesCurrent + "   bytesTotal: " + bytesTotal + " " + percentDone + "%");
+                }
+
+                @Override
+                public void onError(int id, Exception ex) {
+                    // Handle errors
+                }
+
+            });
+
+            // If you prefer to poll for the data, instead of attaching a
+            // listener, check for the state and progress in the observer.
+            if (TransferState.COMPLETED == downloadObserver.getState()) {
+                // Handle a completed upload.
             }
 
-            @Override
-            public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
-                float percentDonef = ((float)bytesCurrent/(float)bytesTotal) * 100;
-                int percentDone = (int)percentDonef;
+            Log.d("YourActivity", "Bytes Transferrred: " + downloadObserver.getBytesTransferred());
+            Log.d("YourActivity", "Bytes Total: " + downloadObserver.getBytesTotal());
 
-                Log.d("MainActivity", "   ID:" + id + "   bytesCurrent: " + bytesCurrent + "   bytesTotal: " + bytesTotal + " " + percentDone + "%");
-            }
-
-            @Override
-            public void onError(int id, Exception ex) {
-                // Handle errors
-            }
-
-        });
-
-        // If you prefer to poll for the data, instead of attaching a
-        // listener, check for the state and progress in the observer.
-        if (TransferState.COMPLETED == downloadObserver.getState()) {
-            // Handle a completed upload.
+        }catch (Exception e){
+            Toast.makeText(getApplicationContext(),"error in download", Toast.LENGTH_LONG);
         }
 
-        Log.d("YourActivity", "Bytes Transferrred: " + downloadObserver.getBytesTransferred());
-        Log.d("YourActivity", "Bytes Total: " + downloadObserver.getBytesTotal());
+
+         //File file = new File(Environment.getExternalStorageDirectory().toString() + "/" + key);
+
+
+
+       // String path = getPath(getApplicationContext(),currentUri);
+
+
+        // Attach a listener to the observer to get state update and progress notifications
+
     }
+
+
 
 
     public void uploadWithTransferUtility(String path) {
@@ -868,11 +999,9 @@ public class MainActivity extends AppCompatActivity {
                         .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
                         .build();
 
-        uploadedKey = android_id+"_"+imageName+".jpg";
+        uploadedKey = (android_id+"_"+imageName).replace(".", "_");
         TransferObserver uploadObserver =
-                transferUtility.upload(
-                        uploadedKey,
-                        new File(path));
+                transferUtility.upload(UPLOAD_BUCKET,uploadedKey+".jpg",new File(path));
 
 
         // Attach a listener to the observer to get state update and progress notifications
@@ -963,7 +1092,7 @@ public class MainActivity extends AppCompatActivity {
             });
             View v = findViewById(R.id.my_layout);
             v.setAlpha(1f);
-            downloadWithTransferUtility();
+            //downloadWithTransferUtility();
             //setPic(bitmap,null);
 
         }
