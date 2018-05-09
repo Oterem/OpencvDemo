@@ -435,7 +435,7 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-    public void onDownloadClick(){
+    public void onDownloadClick(View v){
         //downloadWithTransferUtility();
         //download and ave in cache the json from s3 bucket. returns the name of saved file (random name)
         downloadFromS3();
@@ -459,7 +459,7 @@ public class MainActivity extends AppCompatActivity {
         String name;
         try {
             String fileName = "omri";
-            file = File.createTempFile(fileName, "", context.getCacheDir());
+            file = File.createTempFile(fileName, ".json", context.getCacheDir());
             String path = file.getAbsolutePath();
             name = parseImageName(path);
 
@@ -475,6 +475,7 @@ public class MainActivity extends AppCompatActivity {
         nameToDownload = f.getName();
 
 
+
         TransferUtility transferUtility =
                 TransferUtility.builder()
                         .context(getApplicationContext())
@@ -482,13 +483,23 @@ public class MainActivity extends AppCompatActivity {
                         .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
                         .build();
 
-
+        Log.i(TAG, "OT3: Downloading from s3 "+nameToDownload);
         TransferObserver downloadObserver =
-                transferUtility.download(DOWNLOAD_BUCKET,uploadedKey,f);
-        Log.d("YourActivity", "Upload Complete");
-        String cachePath = getCacheDir().getPath();
+                transferUtility.download(DOWNLOAD_BUCKET,uploadedKey+".json",f);
+        //Log.d("YourActivity", "Upload Complete");
+//
+
+
+        downloadObserver.setTransferListener(new TransferListener() {
+
+            @Override
+            public void onStateChanged(int id, TransferState state) {
+                if (TransferState.COMPLETED == state) {
+                    // Handle a completed upload.
+                    Log.i(TAG, "OT3: Download complete");
+                    String cachePath = getCacheDir().getPath();
         File myDisk = new File(cachePath);
-        File json_string = new File(myDisk+File.separator+nameToDownload+".json");
+        File json_string = new File(myDisk+File.separator+nameToDownload);
         String res = "";
         FileInputStream fis = null;
         JSONObject json = null;
@@ -509,6 +520,7 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     fis.close();
                 } catch (IOException ignored) {
+                Toast.makeText(getApplicationContext(),"Error parsing json", Toast.LENGTH_LONG);
                 }
         }
         try{
@@ -516,22 +528,14 @@ public class MainActivity extends AppCompatActivity {
             JSONObject bigger = json.getJSONObject("bigger");
             String name = bigger.getString("name");
             double val = bigger.getDouble("value");
-
+            Log.i(TAG, "========Final Score===========");
             Log.i(TAG, "OT: "+name+", "+val);
+            Log.i(TAG, "========End of Final Score===========");
 
         }catch (Exception e){
+            Toast.makeText(getApplicationContext(),"Error parsing json1", Toast.LENGTH_LONG);
 
         }
-
-
-
-        downloadObserver.setTransferListener(new TransferListener() {
-
-            @Override
-            public void onStateChanged(int id, TransferState state) {
-                if (TransferState.COMPLETED == state) {
-                    // Handle a completed upload.
-
 
 
 
@@ -995,7 +999,46 @@ public class MainActivity extends AppCompatActivity {
 
 
 
+    private class DownloadFromS3AsyncTask extends AsyncTask<Void,Void,Void>{
 
+        @Override
+        protected Void doInBackground(Void... voids) {
+            downloadFromS3();
+            return null;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
+            View v = findViewById(R.id.my_layout);
+            v.setAlpha(.5f);
+            pb.setVisibility(View.VISIBLE);
+            pb.animate().setDuration(shortAnimTime).alpha(
+                    1).setListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    pb.setVisibility(View.VISIBLE);
+
+                }
+            });
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            pb.setVisibility(View.INVISIBLE);
+
+            pb.animate().setDuration(0).alpha(
+                    0).setListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    pb.setVisibility(View.INVISIBLE);
+
+                }
+            });
+            View v = findViewById(R.id.my_layout);
+            v.setAlpha(1f);
+        }
+    }
 
 
 
@@ -1107,7 +1150,9 @@ public class MainActivity extends AppCompatActivity {
             });
             View v = findViewById(R.id.my_layout);
             v.setAlpha(1f);
-            onDownloadClick();
+            //downloadFromS3();
+            DownloadFromS3AsyncTask myWork = new DownloadFromS3AsyncTask();
+            myWork.execute();
             //downloadWithTransferUtilitydownloadWithTransferUtility();
             //setPic(bitmap,null);
 
@@ -1118,15 +1163,15 @@ public class MainActivity extends AppCompatActivity {
 
             String path = getPath(getApplicationContext(), Uri[0]);
             uploadWithTransferUtility(path);
-//            for(int i=0;i<10;i++){
-//                try {
-//                    Thread.sleep(1000);
-//                    publishProgress(i*10);
-//
-//                }catch (Exception e){
-//                    e.printStackTrace();;
-//                }
-//            }
+            for(int i=0;i<10;i++){
+                try {
+                    Thread.sleep(1000);
+                    publishProgress(i*10);
+
+                }catch (Exception e){
+                    e.printStackTrace();;
+                }
+            }
             return null;
         }
 
