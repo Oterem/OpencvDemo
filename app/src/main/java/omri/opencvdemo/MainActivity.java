@@ -541,7 +541,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
                     alertDialog.show();
-            Toast.makeText(getApplicationContext(),name+": "+val,Toast.LENGTH_LONG);
+            Toast.makeText(getApplicationContext(),name+": "+val+"%",Toast.LENGTH_LONG);
             Log.i(TAG, "========End of Final Score===========");
 
         }catch (Exception e){
