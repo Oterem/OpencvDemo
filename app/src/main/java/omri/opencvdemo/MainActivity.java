@@ -484,6 +484,7 @@ public class MainActivity extends AppCompatActivity {
                         .build();
 
         Log.i(TAG, "OT3: Downloading from s3 "+nameToDownload);
+        Log.i(TAG, "key is: "+uploadedKey+".json");
         TransferObserver downloadObserver =
                 transferUtility.download(DOWNLOAD_BUCKET,uploadedKey+".json",f);
         //Log.d("YourActivity", "Upload Complete");
@@ -530,6 +531,17 @@ public class MainActivity extends AppCompatActivity {
             double val = bigger.getDouble("value");
             Log.i(TAG, "========Final Score===========");
             Log.i(TAG, "OT: "+name+", "+val);
+            final AlertDialog.Builder alertDialog = new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Your diagnose")
+                    .setMessage(name+": "+val)
+                    .setPositiveButton("Got it",new DialogInterface.OnClickListener(){
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            deleteCache(getApplicationContext());
+                        }
+                    });
+                    alertDialog.show();
+            Toast.makeText(getApplicationContext(),name+": "+val,Toast.LENGTH_LONG);
             Log.i(TAG, "========End of Final Score===========");
 
         }catch (Exception e){
@@ -560,7 +572,29 @@ public class MainActivity extends AppCompatActivity {
 
 
 
+    public static void deleteCache(Context context) {
+        try {
+            File dir = context.getCacheDir();
+            deleteDir(dir);
+        } catch (Exception e) {}
+    }
 
+    public static boolean deleteDir(File dir) {
+        if (dir != null && dir.isDirectory()) {
+            String[] children = dir.list();
+            for (int i = 0; i < children.length; i++) {
+                boolean success = deleteDir(new File(dir, children[i]));
+                if (!success) {
+                    return false;
+                }
+            }
+            return dir.delete();
+        } else if(dir!= null && dir.isFile()) {
+            return dir.delete();
+        } else {
+            return false;
+        }
+    }
 
     /*----------------------------------------------------------------------------*/
 
@@ -582,8 +616,11 @@ public class MainActivity extends AppCompatActivity {
 
     public void onAnalyzeClick(View v) {
 
-        getBlobCoordinates();
-
+//        getBlobCoordinates();
+        String path = getPath(getApplicationContext(), currentUri);
+//                            WithTransferUtility(path);
+        UploadToS3AsyncTask job = new UploadToS3AsyncTask();
+        job.execute(currentUri);
 
     }
 
