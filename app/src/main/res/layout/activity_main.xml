@@ -91,7 +91,7 @@
         android:layout_toEndOf="@+id/cropImageView"
 
         android:background="@drawable/rounded_corners"
-        android:contentDescription="@string/image_proccess"
+        android:contentDescription="blabla"
         android:elevation="14dp"
 
         android:onClick="onAnalyzeClick"
@@ -123,12 +123,6 @@
             android:max="100"
             android:visibility="gone" />
 
-        <Button
-            android:id="@+id/download_btn"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:onClick="onDownloadClick"
-            android:text="Button" />
     </com.theartofdev.edmodo.cropper.CropImageView>
 
     <ProgressBar

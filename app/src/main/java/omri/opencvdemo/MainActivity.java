@@ -14,6 +14,7 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
+import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -71,7 +72,7 @@ import java.util.Queue;
 //import org.bytedeco.javacpp.opencv_core;
 //import static org.bytedeco.javacpp.opencv_core.*;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends LoadingDialog {
 
 
     private ImageView mImageView;
@@ -86,6 +87,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA = 100;
     private static int STATE = 3;
     private static final int SAMPLE_BLOB = 3;
+    private static final int TIME_FOR_AWS_LAMBDA = 10;
     private static final int SAMPLE_SKIN = 4;
     private Uri photoURI;
     private ProgressBar pb, uploading_bar;
@@ -122,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
         uploading_bar = (ProgressBar) findViewById(R.id.loading_bar);
         pb.setVisibility(View.GONE);
         mImageView = (ImageView) findViewById(R.id.pic1);
-        download_btn = (Button)findViewById(R.id.download_btn);
+        //download_btn = (Button)findViewById(R.id.download_btn);
         analyze_btn = (ImageButton) findViewById(R.id.analyze_btn);
         analyze_btn.setEnabled(false);
 //        histogram_btn = (ImageButton) findViewById(R.id.hostogram_btn);
@@ -435,25 +437,6 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-    public void onDownloadClick(View v){
-        //downloadWithTransferUtility();
-        //download and ave in cache the json from s3 bucket. returns the name of saved file (random name)
-        downloadFromS3();
-
-
-
-
-
-    }
-
-
-
-
-
-
-
-
-
     private File getTempFile(Context context) {
         File file = new File("");
         String name;
@@ -487,9 +470,6 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, "key is: "+uploadedKey+".json");
         TransferObserver downloadObserver =
                 transferUtility.download(DOWNLOAD_BUCKET,uploadedKey+".json",f);
-        //Log.d("YourActivity", "Upload Complete");
-//
-
 
         downloadObserver.setTransferListener(new TransferListener() {
 
@@ -537,9 +517,10 @@ public class MainActivity extends AppCompatActivity {
                     .setPositiveButton("Got it",new DialogInterface.OnClickListener(){
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
-                            deleteCache(getApplicationContext());
+                            //deleteCache(getApplicationContext());
                         }
                     });
+            hideProgressDialog();
                     alertDialog.show();
             Toast.makeText(getApplicationContext(),name+": "+val+"%",Toast.LENGTH_LONG);
             Log.i(TAG, "========End of Final Score===========");
@@ -618,12 +599,19 @@ public class MainActivity extends AppCompatActivity {
 
 //        getBlobCoordinates();
         String path = getPath(getApplicationContext(), currentUri);
-//                            WithTransferUtility(path);
         UploadToS3AsyncTask job = new UploadToS3AsyncTask();
-        job.execute(currentUri);
 
+        if(isNetworkConnected()){
+            job.execute(currentUri);
+        }
+        else{
+            makeToast(Constants.Strings.NO_CONNECTION);
+        }
     }
 
+    private void makeToast(String msg){
+        Toast.makeText(getApplicationContext(),msg,Toast.LENGTH_LONG).show();
+    }
     public static String getPath(final Context context, final Uri uri) {
         final boolean isKitKat = Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
         Log.i("URI", uri + "");
@@ -1035,6 +1023,10 @@ public class MainActivity extends AppCompatActivity {
 //    }
 
 
+    private boolean isNetworkConnected() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        return cm.getActiveNetworkInfo() != null;
+    }
 
     private class DownloadFromS3AsyncTask extends AsyncTask<Void,Void,Void>{
 
@@ -1045,36 +1037,13 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        protected void onPreExecute() {
-            int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
-            View v = findViewById(R.id.my_layout);
-            v.setAlpha(.5f);
-            pb.setVisibility(View.VISIBLE);
-            pb.animate().setDuration(shortAnimTime).alpha(
-                    1).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    pb.setVisibility(View.VISIBLE);
+        protected void onPreExecute()
+        {
 
-                }
-            });
-        }
+            showProgressDialog(Constants.Strings.DOWNLOAD_IMAGE);}
 
         @Override
-        protected void onPostExecute(Void aVoid) {
-            pb.setVisibility(View.INVISIBLE);
-
-            pb.animate().setDuration(0).alpha(
-                    0).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    pb.setVisibility(View.INVISIBLE);
-
-                }
-            });
-            View v = findViewById(R.id.my_layout);
-            v.setAlpha(1f);
-        }
+        protected void onPostExecute(Void aVoid) {}
     }
 
 
@@ -1127,7 +1096,7 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onError(int id, Exception ex) {
-                    // Handle errors
+                    Log.d(TAG,"Error in upload");
                 }
 
             });
@@ -1147,52 +1116,14 @@ public class MainActivity extends AppCompatActivity {
          */
         @Override
         protected void onPreExecute() {
-            int shortAnimTime = getResources().getInteger(android.R.integer.config_shortAnimTime);
-            View v = findViewById(R.id.my_layout);
-            v.setAlpha(.5f);
-            uploading_bar.setVisibility(View.VISIBLE);
-            uploading_bar.setMax(100);
-            uploading_bar.animate().setDuration(shortAnimTime).alpha(
-                    1).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    uploading_bar.setVisibility(View.VISIBLE);
-
-                }
-            });
+            showProgressDialog(Constants.Strings.UPLOAD_IMAGE);
         }
-
-        @Override
-        protected void onProgressUpdate(Integer... values) {
-            uploading_bar.setProgress(values[0]);
-
-        }
-//        @Override
-//        protected void onPostExecute(Void aVoid) {
-//            super.onPostExecute(aVoid);
-//        }
 
         @Override
         protected void onPostExecute(Void Void) {
-
-            uploading_bar.setVisibility(View.INVISIBLE);
-
-            uploading_bar.animate().setDuration(0).alpha(
-                    0).setListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    uploading_bar.setVisibility(View.INVISIBLE);
-
-                }
-            });
-            View v = findViewById(R.id.my_layout);
-            v.setAlpha(1f);
-            //downloadFromS3();
+            hideProgressDialog();
             DownloadFromS3AsyncTask myWork = new DownloadFromS3AsyncTask();
             myWork.execute();
-            //downloadWithTransferUtilitydownloadWithTransferUtility();
-            //setPic(bitmap,null);
-
         }
 
         @Override
@@ -1200,10 +1131,9 @@ public class MainActivity extends AppCompatActivity {
 
             String path = getPath(getApplicationContext(), Uri[0]);
             uploadWithTransferUtility(path);
-            for(int i=0;i<10;i++){
+            for(int i=0;i<TIME_FOR_AWS_LAMBDA;i++){
                 try {
                     Thread.sleep(1000);
-                    publishProgress(i*10);
 
                 }catch (Exception e){
                     e.printStackTrace();;
